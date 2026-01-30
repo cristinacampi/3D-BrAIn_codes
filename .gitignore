@@ -133,6 +133,8 @@ dmypy.json
 
 # Project-specific
 main/
+MANUSCRIPT.md
+DELIVERABLE.md
 *.npy
 *.h5
 *.hdf5

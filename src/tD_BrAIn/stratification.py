@@ -1,41 +1,58 @@
 """Clustering and stratification functions for time series analysis."""
 
 import numpy as np
-import sklearn
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import minkowski
-from scipy.cluster.hierarchy import dendrogram, linkage, fclusterdata
+from scipy.cluster.hierarchy import linkage, fclusterdata
 from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.decomposition import PCA, FastICA
 from pyclustering.cluster.kmeans import kmeans
 from pyclustering.utils.metric import type_metric, distance_metric
 import pandas as pd
-import h5py
 import math
-import scipy
-import time
 from . import FCM
 from scipy.signal import find_peaks, butter, filtfilt
-import igraph as ig
-import leidenalg as la
 import random
 from kneed import KneeLocator
 from scipy.stats import pearsonr
 
+# Optional heavy dependencies
+try:
+    import igraph as ig
+except ImportError:
+    ig = None
+
+try:
+    import leidenalg as la
+except ImportError:
+    la = None
+
 '''DISTANCE FUNCTIONS'''
 
 def DistanceMinkowski(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Minkowski distance between two vectors.
+    """Minkowski distance between two equal-length vectors.
 
-    Args:
-        a (array): first time series
-        b (array): second time series
-        p_minkowski (int, optional): Minkowski parameter. Defaults to 2 (Euclidean).
-        w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate: unused parameters for interface compatibility.
+    Computes the Minkowski distance with exponent `p_minkowski` (p=2 gives
+    the Euclidean norm).
 
-    Returns:
-        float: Minkowski distance between a and b
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input time series of equal length.
+    p_minkowski : int, optional
+        Exponent of the Minkowski metric (default 2).
+    Other parameters are accepted for API compatibility and ignored.
+
+    Returns
+    -------
+    float
+        Minkowski distance between `a` and `b`.
+
+    Raises
+    ------
+    ValueError
+        If `a` and `b` have different lengths.
     """
     l1 = len(a)
     l2 = len(b)
@@ -44,13 +61,18 @@ def DistanceMinkowski(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsi
     return minkowski(a, b, p=p_minkowski)
 
 def MatrixC(M):
-    """Create cost matrix for DTW distance calculation.
+    """Build cumulative cost matrix for DTW from local cost matrix M.
 
-    Args:
-        M (array): 2D matrix of pairwise distances
+    Parameters
+    ----------
+    M : 2-D array_like
+        Local cost matrix between two sequences (shape NxN).
 
-    Returns:
-        array: cumulative cost matrix
+    Returns
+    -------
+    ndarray
+        Cumulative cost matrix of shape (N+1, N+1) with infinities on the
+        first row/column except C[0,0]=0, ready for DTW path extraction.
     """
     l1 = M.shape[0]
     C = np.zeros((l1+1, l1+1))
@@ -64,14 +86,17 @@ def MatrixC(M):
     return C
 
 def MatrixM(a, b):
-    """Compute pairwise squared distances between elements of two vectors.
+    """Compute element-wise squared distance matrix between two vectors.
 
-    Args:
-        a (array): first vector
-        b (array): second vector
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input sequences of equal length N.
 
-    Returns:
-        array: 2D matrix of squared distances
+    Returns
+    -------
+    ndarray
+        NxN matrix where entry (i,j) is (a[i] - b[j])**2.
     """
     l1 = len(a)
     aa = np.repeat(a, l1, axis=0).reshape(l1, l1)
@@ -79,15 +104,25 @@ def MatrixM(a, b):
     return (aa - bb) ** 2
 
 def Warping(a, b, M):
-    """Compute dynamic time warping alignment between two signals.
+    """Reconstruct DTW alignment (warped sequences and aligned indices).
 
-    Args:
-        a (array): first signal
-        b (array): second signal
-        M (array): pairwise distance matrix
+    Given sequences `a`, `b` and their local cost matrix `M`, computes the
+    cumulative cost matrix and backtracks the optimal path to produce
+    warped versions of the inputs and the aligned indices.
 
-    Returns:
-        tuple: (warped_a, warped_b, indices_a, indices_b)
+    Parameters
+    ----------
+    a, b : array_like
+        Original 1-D sequences.
+    M : 2-D array_like
+        Local cost matrix (usually from MatrixM).
+
+    Returns
+    -------
+    tuple
+        (warped_a, warped_b, indices_a, indices_b) where warped_a and
+        warped_b are the aligned (warped) sequences and indices_a/indices_b
+        are arrays of original indices used for each warped element.
     """
     C = MatrixC(M)
     i = C.shape[0]-1
@@ -111,15 +146,26 @@ def Warping(a, b, M):
     return w_a, w_b, np.array(idx_a), np.array(idx_b)
 
 def DistanceDTW(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Dynamic Time Warping distance.
+    """Dynamic Time Warping (DTW) distance between two equal-length sequences.
 
-    Args:
-        a (array): first time series
-        b (array): second time series
-        p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate: parameters
+    Computes DTW on squared-element costs (MatrixM) and returns the root of
+    the final cumulative cost.
 
-    Returns:
-        float: DTW distance
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input sequences of equal length.
+    Other parameters are accepted for API compatibility and ignored.
+
+    Returns
+    -------
+    float
+        DTW distance (sqrt of cumulative cost at (N, N)).
+
+    Raises
+    ------
+    ValueError
+        If `a` and `b` have different lengths.
     """
     if len(a) != len(b):
         raise ValueError('Vectors must have equal length')
@@ -146,22 +192,57 @@ def A1B1DDTW(a, b):
     return a1, b1
 
 def DistanceDDTW(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Derivative Dynamic Time Warping distance."""
+    """Derivative Dynamic Time Warping (DDTW) distance.
+
+    This function computes the Dynamic Time Warping (DTW) distance between
+    the derivative-transformed versions of two input sequences. The derivative
+    transform reduces the influence of baseline offsets and emphasizes the
+    shape and temporal dynamics of the signals.
+
+    Parameters
+    ----------
+    a : array_like
+        First 1-D time series. Must have the same length as `b`.
+    b : array_like
+        Second 1-D time series. Must have the same length as `a`.
+    p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate : optional
+        Additional parameters accepted for API compatibility with other
+        distance functions; not used by this implementation.
+
+    Returns
+    -------
+    float
+        The DTW distance computed on the derivative-transformed sequences.
+
+    Raises
+    ------
+    ValueError
+        If input sequences `a` and `b` have different lengths.
+    """
     if len(a) != len(b):
         raise ValueError('Vectors must have equal length')
     a1, b1 = A1B1DDTW(a, b)
     return DistanceDTW(a1, b1)
 
 def MatrixMw(M, w_max, g):
-    """Apply weights to distance matrix based on indices.
+    """Apply an index-based weighting mask to a cost matrix for WDTW.
 
-    Args:
-        M (array): distance matrix
-        w_max (float): weight parameter
-        g (float): exponential parameter
+    The weight depends on the absolute index difference and parameters
+    `w_max` and `g` to control the logistic scaling.
 
-    Returns:
-        array: weighted distance matrix
+    Parameters
+    ----------
+    M : 2-D array_like
+        Local cost matrix to weight (NxN).
+    w_max : float
+        Maximum weight scaling factor.
+    g : float
+        Sharpness/steepness parameter of the logistic modulator.
+
+    Returns
+    -------
+    ndarray
+        Weighted cost matrix (modified in place and returned).
     """
     l1 = M.shape[0]
     for i in range(l1):
@@ -170,7 +251,28 @@ def MatrixMw(M, w_max, g):
     return M
 
 def DistanceWDTW(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Weighted Dynamic Time Warping distance."""
+    """Weighted Dynamic Time Warping (WDTW) distance.
+
+    Applies an index-based weight mask to the local cost matrix before
+    computing DTW, emphasizing or de-emphasizing alignments by temporal offset.
+
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input sequences of equal length.
+    w_max, g : float
+        Weight parameters controlling the logistic weighting function.
+
+    Returns
+    -------
+    float
+        WDTW distance.
+
+    Raises
+    ------
+    ValueError
+        If `a` and `b` have different lengths.
+    """
     if len(a) != len(b):
         raise ValueError('Vectors must have equal length')
     M = MatrixM(a, b)
@@ -179,12 +281,52 @@ def DistanceWDTW(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_L
     return math.sqrt(C[len(a)][len(b)])
 
 def DistanceWDDTW(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Weighted Derivative Dynamic Time Warping distance."""
+    """Weighted Derivative DTW (WDDTW) distance.
+
+    Computes WDTW after applying the derivative transform (A1B1DDTW), which
+    emphasizes waveform shape while incorporating index-based weighting.
+
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input sequences of equal length.
+    w_max, g : float
+        Weighting parameters for MatrixMw.
+
+    Returns
+    -------
+    float
+        WDDTW distance.
+    """
     a1, b1 = A1B1DDTW(a, b)
     return DistanceWDTW(a1, b1, w_max=w_max, g=g)
 
 def DistanceLCSS(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Longest Common Subsequence distance."""
+    """Longest Common Subsequence (LCSS) distance for equal-length sequences.
+
+    Computes a similarity-based distance using a tolerance epsilon_LCSS scaled
+    by the norm of `a`. The output is in [0,1], where 0 means identical and
+    1 means no common subsequence (normalized by sequence length).
+
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input sequences of equal length.
+    epsilon_LCSS : float, optional
+        Relative tolerance factor (default 0.001) used as epsilon_abs =
+        epsilon_LCSS * ||a|| to determine matching elements.
+    Other parameters are accepted for API compatibility and ignored.
+
+    Returns
+    -------
+    float
+        Normalized LCSS distance: 1 - (LCS_length / N).
+
+    Raises
+    ------
+    ValueError
+        If `a` and `b` have different lengths.
+    """
     if len(a) != len(b):
         raise ValueError('Vectors must have equal length')
     epsilon_abs = epsilon_LCSS * np.linalg.norm(a)
@@ -199,7 +341,28 @@ def DistanceLCSS(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_L
     return 1 - L[l1][l1]/l1
 
 def DistanceEDR(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Edit Distance on Real Sequences."""
+    """Edit Distance on Real Sequences (EDR) for equal-length sequences.
+
+    Computes the edit distance where substitutions within epsilon_EDR * ||a||
+    are considered matches (cost 0); insertions/deletions cost 1.
+
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input sequences of equal length.
+    epsilon_EDR : float, optional
+        Relative tolerance factor used as epsilon_abs = epsilon_EDR * ||a||.
+
+    Returns
+    -------
+    float
+        EDR cost (non-negative integer value).
+
+    Raises
+    ------
+    ValueError
+        If `a` and `b` have different lengths.
+    """
     if len(a) != len(b):
         raise ValueError('Vectors must have equal length')
     epsilon_abs = epsilon_EDR * np.linalg.norm(a)
@@ -212,49 +375,72 @@ def DistanceEDR(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LC
     return E[l1][l1]
 
 def DistanceRho2(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Distance based on Pearson correlation coefficient."""
+    """Distance based on Pearson correlation: 2 * (1 - rho).
+
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input sequences of equal length.
+    Returns
+    -------
+    float
+        Distance in [0,4] where 0 indicates perfect positive correlation.
+
+    Raises
+    ------
+    ValueError
+        If `a` and `b` have different lengths.
+    """
     if len(a) != len(b):
         raise ValueError('Vectors must have equal length')
     rho = pearsonr(a, b)[0]
     return 2 * (1 - rho)
 
 def DistanceSTS(a, b, p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Short Time Series distance."""
+    """Short Time Series (STS) distance using first differences.
+
+    Computes the Euclidean norm of the difference between first derivatives
+    (discrete differences) scaled by SamplingRate.
+
+    Parameters
+    ----------
+    a, b : array_like
+        1-D input sequences of equal length.
+    SamplingRate : float, optional
+        Scaling factor applied to differences (default 1000).
+
+    Returns
+    -------
+    float
+        STS distance.
+
+    Raises
+    ------
+    ValueError
+        If `a` and `b` have different lengths.
+    """
     if len(a) != len(b):
         raise ValueError('Vectors must have equal length')
     aa = np.diff(a)
     bb = np.diff(b)
     return math.sqrt(np.sum(((aa-bb)*SamplingRate)**2))
 
-def AdjacencyMatrix(data, distance='m', p_minkowski=2, w_max=1, g=1, epsilon_EDR=0.001, epsilon_LCSS=0.001, SamplingRate=1000):
-    """Compute adjacency matrix for Leiden algorithm.
-
-    Args:
-        data (array): 2D dataset
-        distance (str): distance metric name
-        Other parameters for distance functions
-
-    Returns:
-        array: adjacency matrix
-    """
-    distance_func = globals()[f'Distance{distance.upper()}']
-    distance_func.__defaults__ = (p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate)
-    dim = data.shape[0]
-    matrix = np.zeros((dim, dim))
-    for i in range(dim):
-        for j in range(i+1, dim):
-            matrix[i][j] = distance_func(data[i], data[j])
-    matrix = matrix + matrix.T
-    M = np.max(matrix)
-    matrix_2 = matrix / M
-    adjacency = 1 / (1 + matrix_2)
-    adjacency[adjacency <= 0.75] = 0
-    return adjacency
-
-'''NORMALIZATION FUNCTIONS'''
-
 def NormalizationMinMaxSingle(data):
-    """Min-max normalization per sample."""
+    """Per-sample min-max normalization in-place.
+
+    For each sample (assumed data[i] is a 1-D array), scales values to [0,1]
+    using the sample's own min and max. If min==max, the sample becomes zeros.
+
+    Parameters
+    ----------
+    data : ndarray
+        2-D array-like where each row (or element) is a sample to normalize.
+
+    Returns
+    -------
+    ndarray
+        The normalized data (modified in place and returned).
+    """
     for i in range(len(data)):
         m = np.min(data[i])
         M = np.max(data[i])
@@ -265,7 +451,18 @@ def NormalizationMinMaxSingle(data):
     return data
 
 def NormalizationMinMaxGlobal(data):
-    """Min-max normalization using global min/max."""
+    """Global min-max normalization using dataset-wide min and max.
+
+    Parameters
+    ----------
+    data : ndarray
+        2-D array-like dataset.
+
+    Returns
+    -------
+    ndarray
+        The normalized data (modified in place and returned).
+    """
     minimum = np.min(data)
     maximum = np.max(data)
     for i in range(len(data)):
@@ -273,7 +470,21 @@ def NormalizationMinMaxGlobal(data):
     return data
 
 def Whitening(data):
-    """Z-score normalization per sample."""
+    """Per-sample z-score normalization (mean 0, std 1) in-place.
+
+    For each sample normalizes by its own mean and standard deviation. If
+    a sample has zero std, it is set to zeros.
+
+    Parameters
+    ----------
+    data : ndarray
+        2-D array-like where each row (or element) is a sample.
+
+    Returns
+    -------
+    ndarray
+        The normalized data (modified in place and returned).
+    """
     for i in range(len(data)):
         mu = np.mean(data[i])
         sigma = np.std(data[i])
@@ -284,7 +495,18 @@ def Whitening(data):
     return data
 
 def WhiteningGlobal(data):
-    """Z-score normalization using global mean/std."""
+    """Global z-score normalization using dataset mean and std.
+
+    Parameters
+    ----------
+    data : ndarray
+        2-D array-like dataset.
+
+    Returns
+    -------
+    ndarray
+        The normalized data (modified in place and returned).
+    """
     mu = np.mean(data)
     sigma = np.std(data)
     for i in range(len(data)):
@@ -293,7 +515,7 @@ def WhiteningGlobal(data):
 
 '''CLUSTERING ALGORITHMS'''
 
-def Dendrogram(data, metric, method_HC='complete', threshold_dendrogram=0.7):
+def GenerateDendrogram(data, metric, method_HC='complete', threshold_dendrogram=0.7):
     """Generate dendrogram cut height for hierarchical clustering.
 
     Args:

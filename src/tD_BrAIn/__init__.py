@@ -18,7 +18,6 @@ from . import vaegan_functions
 __all__ = [
     'brw_functions',
     'bxr_functions',
-    'clustering',
     'FCM',
     'gan_functions',
     'merging_tree',

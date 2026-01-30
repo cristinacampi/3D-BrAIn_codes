@@ -15,6 +15,7 @@ import igraph as ig
 from igraph import Graph, plot
 import leidenalg as la
 import random
+from . import brw_functions as brw_f
 from . import stratification
 from . import merging_tree as merge
 import matplotlib.patches as mpatches

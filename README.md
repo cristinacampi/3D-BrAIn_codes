@@ -45,69 +45,6 @@ docker build -t 3d-brain:latest .
 docker run -it -v $(pwd):/app 3d-brain:latest
 ```
 
-### Basic Usage
-
-#### Spike Sorting
-```python
-from tD_BrAIn.spikes_sorting import SacchiSpikeSorting
-import numpy as np
-
-# Load your data
-data = np.load('mea_recording.npy')  # Shape: (n_samples, n_channels)
-sampling_rate = 1000  # Hz
-
-# Run spike sorting
-templates, frames = SacchiSpikeSorting(
-    data,
-    SamplingRate=sampling_rate,
-    algo='Leiden',
-    chs=range(64),
-    lowcut=300,
-    highcut=3000
-)
-
-print(f"Found {len(templates[0])} neurons")
-```
-
-#### Clustering
-```python
-from tD_BrAIn.clustering import Clustering
-
-# Spike waveforms
-spikes = np.random.randn(1000, 41)
-
-# Cluster using Leiden algorithm
-n_classes, clusters = Clustering(
-    spikes,
-    algo='Leiden',
-    distance='rho',
-    threshold_Leiden=0.95
-)
-
-print(f"Identified {n_classes} clusters")
-```
-
-#### GAN Training
-```python
-from tD_BrAIn.gan_functions import MEADataset, GANTrainer
-from torch.utils.data import DataLoader
-
-# Load dataset
-dataset = MEADataset('data.csv')
-train_loader = DataLoader(dataset, batch_size=32, shuffle=True)
-
-# Initialize and train
-trainer = GANTrainer(
-    feature_dim=1,
-    input_dim=99,
-    latent_dim=42,
-    emb_dim=360,
-    num_heads=6
-)
-
-trainer.train(train_loader, epochs=80, patience=50)
-```
-
 ## Project Structure
 
 ```

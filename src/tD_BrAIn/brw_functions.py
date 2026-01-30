@@ -12,7 +12,6 @@ from . import bxr_functions
 import time
 from scipy.signal import find_peaks, butter, filtfilt, wiener, iirnotch
 from statistics import median
-from . import stratification
 import plotly.express as px
 from . import spikes_sorting as spk_sort
 from concurrent.futures import ProcessPoolExecutor, as_completed
