@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  3d-brain:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: 3d-brain-dev
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    working_dir: /app
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: 3d-brain-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    working_dir: /app
+    command: >
+      jupyter notebook 
+      --ip=0.0.0.0 
+      --allow-root 
+      --no-browser 
+      --NotebookApp.token='' 
+      --NotebookApp.password=''
+
+  # Optional: GPU-enabled service (requires NVIDIA Docker)
+  # 3d-brain-gpu:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   runtime: nvidia
+  #   environment:
+  #     - NVIDIA_VISIBLE_DEVICES=all
+  #     - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+  #   volumes:
+  #     - .:/app
+  #   working_dir: /app
+  #   command: /bin/bash
