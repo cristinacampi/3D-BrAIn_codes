@@ -46,7 +46,8 @@ def ReadBXR(filename, wellID):
     return bxr
 
 def ConversionTimeToFrames(bxr, Time):
-    """Convert time in seconds to frames based on sampling frequency.
+    """
+    Convert time in seconds to frames based on sampling frequency.
 
     Args:
         bxr (BxrFile): BXR file object
@@ -60,7 +61,7 @@ def ConversionTimeToFrames(bxr, Time):
     return Frames
 
 def Spikes2df(bxr, wellID, startTime = 0, Duration = 0.05):
-    """
+    """ 
     Selected a BXR file and a well, we read the frames and the channel where
     spikes were detected (in a selected time interval)
 
@@ -71,8 +72,7 @@ def Spikes2df(bxr, wellID, startTime = 0, Duration = 0.05):
         Duration (float, optional): duration of the measurement (in second). Defaults to 0.05
 
     Returns:
-        SpikesFrames (array): it contains the frames when spikes occured; 
-            if N channels have a spike at the frame T, then the frame T is repeated N times in the array
+        SpikesFrames (array): it contains the frames when spikes occured; if N channels have a spike at the frame T, then the frame T is repeated N times in the array
         SpikeChannels (array): it contains the channel that measured the spikes
     """    
     startFrame = ConversionTimeToFrames(bxr, startTime)

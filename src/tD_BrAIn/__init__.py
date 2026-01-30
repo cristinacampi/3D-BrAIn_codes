@@ -8,7 +8,6 @@ __author__ = 'Cristina Campi, Lorenzo Sacchi, Maurits Unkel'
 
 from . import brw_functions
 from . import bxr_functions
-from . import clustering
 from . import FCM
 from . import gan_functions
 from . import merging_tree

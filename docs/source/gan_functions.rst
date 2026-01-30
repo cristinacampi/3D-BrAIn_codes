@@ -1,7 +1,7 @@
 gan\_functions module
 =====================
 
-.. automodule:: 3d_brain.gan_functions
+.. automodule:: tD_BrAIn.gan_functions
    :members:
    :show-inheritance:
    :undoc-members:

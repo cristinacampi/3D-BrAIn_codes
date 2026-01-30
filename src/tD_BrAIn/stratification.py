@@ -231,7 +231,7 @@ def AdjacencyMatrix(data, distance='m', p_minkowski=2, w_max=1, g=1, epsilon_EDR
 
     Args:
         data (array): 2D dataset
-        distance (str): distance metric name (without 'd_' prefix)
+        distance (str): distance metric name
         Other parameters for distance functions
 
     Returns:

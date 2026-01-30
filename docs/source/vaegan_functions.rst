@@ -1,7 +1,7 @@
 vaegan\_functions module
 ========================
 
-.. automodule:: 3d_brain.vaegan_functions
+.. automodule:: tD_BrAIn.vaegan_functions
    :members:
    :show-inheritance:
    :undoc-members:

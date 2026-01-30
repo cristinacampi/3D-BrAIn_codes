@@ -49,7 +49,7 @@ docker run -it -v $(pwd):/app 3d-brain:latest
 
 #### Spike Sorting
 ```python
-from 3d_brain.spikes_sorting import SacchiSpikeSorting
+from tD_BrAIn.spikes_sorting import SacchiSpikeSorting
 import numpy as np
 
 # Load your data
@@ -71,7 +71,7 @@ print(f"Found {len(templates[0])} neurons")
 
 #### Clustering
 ```python
-from 3d_brain.clustering import Clustering
+from tD_BrAIn.clustering import Clustering
 
 # Spike waveforms
 spikes = np.random.randn(1000, 41)
@@ -89,7 +89,7 @@ print(f"Identified {n_classes} clusters")
 
 #### GAN Training
 ```python
-from 3d_brain.gan_functions import MEADataset, GANTrainer
+from tD_BrAIn.gan_functions import MEADataset, GANTrainer
 from torch.utils.data import DataLoader
 
 # Load dataset
@@ -113,7 +113,7 @@ trainer.train(train_loader, epochs=80, patience=50)
 ```
 3D-BrAIn/
 ├── src/
-│   └── 3d_brain/              # Main package
+│   └── tD_BrAIn/              # Main package
 │       ├── __init__.py
 │       ├── spikes_sorting.py          # Spike detection and sorting
 │       ├── clustering.py              # Clustering algorithms

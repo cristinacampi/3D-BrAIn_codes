@@ -1,7 +1,7 @@
 merging\_tree module
 ====================
 
-.. automodule:: 3d_brain.merging_tree
+.. automodule:: tD_BrAIn.merging_tree
    :members:
    :show-inheritance:
    :undoc-members:
