@@ -17,7 +17,7 @@ setup(
     name='3D-BrAIn',
     version='1.0.0',
     author='Cristina Campi, Lorenzo Sacchi, Maurits Unkel',
-    author_email='cristina.sacchi@unige.it',
+    author_email='cristina.campi@unige.it',
     description='3D Brain Activity In vitro Network: Spike sorting, clustering, and GAN-based signal synthesis for MEA data',
     long_description=long_description,
     long_description_content_type='text/markdown',

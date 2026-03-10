@@ -89,6 +89,18 @@ make html
 # Open _build/html/index.html
 ```
 
+## Publish docs on GitHub Pages (Sphinx)
+
+This repository includes an automated workflow at `.github/workflows/sphinx-gh-pages.yml`.
+
+1. Push to the `main` branch.
+2. In GitHub, open **Settings → Pages**.
+3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+
+After the workflow completes, docs are published at:
+
+`https://<your-username>.github.io/<your-repository>/`
+
 
 
 If you use 3D-BrAIn in your research, please cite:
