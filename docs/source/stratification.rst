@@ -1,7 +1,7 @@
 stratification module
 =====================
 
-.. automodule:: tD_BrAIn.stratification
+.. automodule:: brain_3d.stratification
    :members:
    :show-inheritance:
    :undoc-members:

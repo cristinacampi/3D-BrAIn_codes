@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.abspath('../../src'))
 project = '3D-BrAIn'
 copyright = '2026, Cristina Campi, Lorenzo Sacchi, Maurits Unkel'
 author = 'Cristina Campi, Lorenzo Sacchi, Maurits Unkel'
-release = '0.1.0'
+release = '1.0.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -25,16 +25,36 @@ extensions = [
 ]
 
 templates_path = ['_templates']
-exclude_patterns = []
 
 # -- Autodoc configuration ---------------------------------------------------
 autodoc_default_options = {
-    'members': True,
+    'members': '',
     'member-order': 'bysource',
     'special-members': '__init__',
-    'undoc-members': True,
-    'show-inheritance': True,
+    'undoc-members': '',
+    'show-inheritance': '',
 }
+
+autodoc_mock_imports = [
+    'scipy',
+    'scipy.signal',
+    'sklearn',
+    'sklearn.cluster',
+    'psutil',
+    'h5py',
+    'pywt',
+    'plotly',
+    'plotly.express',
+    'seaborn',
+    'fcmeans',
+    'igraph',
+    'leidenalg',
+    'elephant',
+    'neo',
+    'quantities',
+    'pyclustering',
+    'kneed',
+]
 
 # -- Napoleon configuration ---------------------------------------------------
 napoleon_google_docstring = True
@@ -61,6 +81,4 @@ napoleon_attr_annotations = True
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 
-exclude_patterns = [
-    'setup.py',
-]
+exclude_patterns = ['setup.py']

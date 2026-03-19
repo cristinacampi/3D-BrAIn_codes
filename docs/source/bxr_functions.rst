@@ -1,7 +1,7 @@
 bxr\_functions module
 =====================
 
-.. automodule:: tD_BrAIn.bxr_functions
+.. automodule:: brain_3d.bxr_functions
    :members:
    :show-inheritance:
    :undoc-members:

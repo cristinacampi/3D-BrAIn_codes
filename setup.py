@@ -21,11 +21,11 @@ setup(
     description='3D Brain Activity In vitro Network: Spike sorting, clustering, and GAN-based signal synthesis for MEA data',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/your-repo/3D-BrAIn',
+    url='https://github.com/cristinacampi/3D-BrAIn_codes',
     project_urls={
-        'Bug Tracker': 'https://github.com/your-repo/3D-BrAIn/issues',
-        'Documentation': 'https://3d-brain.readthedocs.io',
-        'Source Code': 'https://github.com/your-repo/3D-BrAIn',
+        'Bug Tracker': 'https://github.com/cristinacampi/3D-BrAIn_codes/issues',
+        'Documentation': 'https://cristinacampi.github.io/3D-BrAIn_codes/',
+        'Source Code': 'https://github.com/cristinacampi/3D-BrAIn_codes',
     },
     packages=find_packages(where='src'),
     package_dir={'': 'src'},
@@ -52,16 +52,11 @@ setup(
             'sphinx>=4.5.0',
         ],
         'gpu': [
-            'torch>=1.10.0,!=1.12.0[cu116]',
-            'torchvision>=0.11.0[cu116]',
+            'torch>=1.10.0,!=1.12.0',
+            'torchvision>=0.11.0',
         ],
     },
     include_package_data=True,
     zip_safe=False,
     keywords='spike-sorting clustering MEA neural-recording deep-learning GAN',
-    entry_points={
-        'console_scripts': [
-            '3d-brain=main_clustering_realdata:main',
-        ],
-    },
 )

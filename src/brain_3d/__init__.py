@@ -11,7 +11,7 @@ from . import bxr_functions
 from . import FCM
 from . import gan_functions
 from . import merging_tree
-from . import spikes_sorting
+from . import spike_sorting
 from . import stratification
 from . import vaegan_functions
 
@@ -21,7 +21,7 @@ __all__ = [
     'FCM',
     'gan_functions',
     'merging_tree',
-    'spikes_sorting',
+    'spike_sorting',
     'stratification',
     'vaegan_functions',
 ]

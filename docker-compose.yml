@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  td-brain:
+  brain-3d:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: td-brain-dev
+    container_name: brain-3d-dev
     volumes:
       - .:/app
       - /app/__pycache__
@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: td-brain-jupyter
+    container_name: brain-3d-jupyter
     ports:
       - "8888:8888"
     volumes:

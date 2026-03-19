@@ -9,6 +9,6 @@
    bxr_functions
    gan_functions
    merging_tree
-   spikes_sorting
+   spike_sorting
    stratification
    vaegan_functions

@@ -2,7 +2,7 @@
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.your-doi.svg)](https://doi.org/10.5281/zenodo.your-doi)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cristinacampi.github.io/3D-BrAIn_codes/)
 
 Advanced spike sorting, clustering, and deep learning-based signal synthesis for microelectrode array (MEA) recordings of neural networks.
 
@@ -34,8 +34,8 @@ conda activate 3d-brain
 
 #### From source
 ```bash
-git clone https://github.com/your-repo/3D-BrAIn.git
-cd 3D-BrAIn
+git clone https://github.com/cristinacampi/3D-BrAIn_codes.git
+cd 3D-BrAIn_codes
 pip install -e .
 ```
 
@@ -48,12 +48,11 @@ docker run -it -v $(pwd):/app 3d-brain:latest
 ## Project Structure
 
 ```
-3D-BrAIn/
+3D-BrAIn_codes/
 ├── src/
-│   └── tD_BrAIn/              # Main package
+│   └── brain_3d/              # Main package
 │       ├── __init__.py
-│       ├── spikes_sorting.py          # Spike detection and sorting
-│       ├── clustering.py              # Clustering algorithms
+│       ├── spike_sorting.py           # Spike detection and sorting
 │       ├── merging_tree.py            # Hierarchical merging tree
 │       ├── gan_functions.py           # GAN models and training
 │       ├── vaegan_functions.py        # VAE-GAN implementation
@@ -61,13 +60,6 @@ docker run -it -v $(pwd):/app 3d-brain:latest
 │       ├── bxr_functions.py           # BXR file operations
 │       ├── stratification.py          # Stratification algorithms
 │       └── FCM.py                     # Fuzzy C-Means clustering
-├── main/                      # Example scripts
-│   ├── main_clustering_realdata.py
-│   ├── main_gan.py
-│   ├── main_vaegan.py
-│   ├── main_extract_spike.py
-│   ├── main_compute_spike_rates.py
-│   └── plot_figure.py
 ├── docs/                      # Sphinx documentation
 │   ├── source/
 │   └── build/
@@ -85,8 +77,8 @@ GPU acceleration available with CUDA.
 Build locally:
 ```bash
 cd docs
-make html
-# Open _build/html/index.html
+../.venv/bin/python -m sphinx -b html source build/html
+# Open build/html/index.html
 ```
 
 ## Publish docs on GitHub Pages (Sphinx)
@@ -99,21 +91,8 @@ This repository includes an automated workflow at `.github/workflows/sphinx-gh-p
 
 After the workflow completes, docs are published at:
 
-`https://<your-username>.github.io/<your-repository>/`
+`https://cristinacampi.github.io/3D-BrAIn_codes/`
 
-
-
-If you use 3D-BrAIn in your research, please cite:
-
-```bibtex
-@software{sacchi2024_3dbrain,
-  author       = {},
-  title        = {},
-  year         = {},
-  url          = {},
-  doi          = {}
-}
-```
 
 ## License
 

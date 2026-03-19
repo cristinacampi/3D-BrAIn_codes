@@ -14,7 +14,7 @@ dependencies:
   - seaborn>=0.11.0
   
   # PyTorch (CPU version - change to pytorch::pytorch-cuda for GPU)
-  - pytorch::pytorch::cpu
+  - pytorch::pytorch
   - pytorch::pytorch-cpu
   - pytorch::torchvision
   
@@ -49,15 +49,15 @@ dependencies:
   # Code quality
   - black>=21.0.0
   - flake8>=3.9.0
-  
-pip:
-  - python-igraph>=0.9.0
-  - leidenalg>=0.9.0
-  - elephant>=0.10.0
-  - neo>=0.11.0
-  - quantities>=0.13.0
-  - pyclustering>=0.10.0
-  - kneed>=0.8.1
-  - fcmeans>=0.1.5
-  - joblib>=1.1.0
-  - sphinx-autodoc-typehints>=1.12.0
+
+  - pip:
+      - python-igraph>=0.9.0
+      - leidenalg>=0.9.0
+      - elephant>=0.10.0
+      - neo>=0.11.0
+      - quantities>=0.13.0
+      - pyclustering>=0.10.0
+      - kneed>=0.8.1
+      - fcmeans>=0.1.5
+      - joblib>=1.1.0
+      - sphinx-autodoc-typehints>=1.12.0

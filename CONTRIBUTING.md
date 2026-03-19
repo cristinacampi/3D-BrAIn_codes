@@ -11,7 +11,7 @@ Thank you for your interest in contributing to 3D-BrAIn! This document provides 
 ## Getting Started
 
 1. **Fork** the repository
-2. **Clone** your fork: `git clone https://github.com/your-username/3D-BrAIn.git`
+2. **Clone** your fork: `git clone https://github.com/your-username/3D-BrAIn_codes.git`
 3. **Create** a virtual environment: `conda env create -f environment.yml`
 4. **Install** development dependencies: `pip install -e ".[dev]"`
 
@@ -129,7 +129,7 @@ When reporting bugs, include:
 Build docs locally:
 ```bash
 cd docs
-make html
+../.venv/bin/python -m sphinx -b html source build/html
 ```
 
 ## Performance Considerations

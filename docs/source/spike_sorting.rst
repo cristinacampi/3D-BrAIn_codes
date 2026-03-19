@@ -1,7 +1,7 @@
-gan\_functions module
+spike\_sorting module
 =====================
 
-.. automodule:: brain_3d.gan_functions
+.. automodule:: brain_3d.spike_sorting
    :members:
    :show-inheritance:
    :undoc-members:

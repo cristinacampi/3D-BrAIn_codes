@@ -13,7 +13,6 @@ import time
 from scipy.signal import find_peaks, butter, filtfilt, wiener, iirnotch
 from statistics import median
 import plotly.express as px
-from . import spikes_sorting as spk_sort
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import seaborn as sns
 
@@ -245,6 +244,42 @@ def ReadingSingleChannel(brw, wellID, DownsamplingFrequency, row, col, StartTime
     aux_data = data[:,row*dim_1+col]
     return aux_data, frames2save
 
+def LoopReading(ch, NumChannels, Duration, TotDuration, brw, wellID, SamplingRate, StartTime, outputPath):
+    """Read one channel over consecutive windows and save it as .npy.
+
+    Args:
+        ch (int): channel index.
+        NumChannels (int): number of channels per row (e.g. 64).
+        Duration (float): duration of each read chunk in seconds.
+        TotDuration (float): total duration to read in seconds.
+        brw (BrwFile): opened BRW file handle.
+        wellID (str): selected well identifier.
+        SamplingRate (float): target sampling frequency used by ReadingSingleChannel.
+        StartTime (float): initial time in seconds.
+        outputPath (str): folder where channel .npy file is saved.
+    """
+    row = np.int16(np.floor(ch / NumChannels))
+    col = ch - NumChannels * row
+    frames_index = np.array([])
+    data_full = np.array([])
+    count = 0
+    while (count + 1) * Duration < TotDuration:
+        data_full_chunk, frames_index_chunk = ReadingSingleChannel(
+            brw,
+            wellID,
+            SamplingRate,
+            row,
+            col,
+            StartTime + count * Duration,
+            Duration,
+        )
+        count = count + 1
+        data_full = np.concatenate([data_full, data_full_chunk.copy()])
+        frames_index = np.concatenate([frames_index, frames_index_chunk.copy()])
+    np.save(outputPath + '/ch' + str(ch) + '.npy', data_full)
+
+    return frames_index
+
 def PlotRawData(brw, wellID, title, Downsampling_Frequency, row, col, startTime=0, Duration=0.05): 
     """
     Selected a BRW file, a well and a channel in the well, 
@@ -273,6 +308,23 @@ def PlotRawData(brw, wellID, title, Downsampling_Frequency, row, col, startTime=
     plt.ylabel('(uV)')
     plt.savefig(title+".png")
     plt.show()
+
+
+def SaveChannel(args_tuple):
+    """Append channel data to an existing .npy file and save it.
+
+    Args:
+        args_tuple (tuple): (ch, data_ch, basePath, prefix)
+            - ch (int): channel index.
+            - data_ch (array-like): new samples to append.
+            - basePath (str): folder where channel files are stored.
+            - prefix (str): filename prefix (e.g. 'channel_' or 'ch').
+    """
+    ch, data_ch, basePath, prefix = args_tuple
+    channelFile = basePath + '/' + prefix + str(ch) + '.npy'
+    data_ch_prev = np.load(channelFile)
+    data_ch = np.array(list(data_ch) + list(data_ch_prev))
+    np.save(channelFile, data_ch)
 
 def SingleChannelFramesWithPeaks(brw, wellID, Downsampling_Frequency, row, col, startTime=0, Duration = 0.05, threshold=0):
     """
@@ -377,7 +429,7 @@ def BRW2df(brw, wellID, Downsampling_Frequency, startTime = 0, Duration = 0.05):
     df_AL = pd.DataFrame(lista_AL, columns=["Frame", "Activity"])
     return df_XY, df_AL
 
-def SpikesActivityLevel(brw, bxr, wellID, Downsampling_Frequency, startTime = 0, Duration = 0.05):
+def SpikesActivityLevel(brw, bxr, wellID, startTime = 0, Duration = 0.05):
     """
     This function creates a matrix (number of frames saved x channels) where the entry ij is not zero if and only if
     the channel j has a spike at frame i; the entry is equal to the activity level of the channel j at frame i
@@ -386,7 +438,6 @@ def SpikesActivityLevel(brw, bxr, wellID, Downsampling_Frequency, startTime = 0,
         brw (BrwFile): BRW file
         bxr (BXRFile): BRW file
         wellID (str): identifier of the selected well
-        Downsampling_Frequency (float): chosen sampling frequency
         startTime (float, optional): starting time in seconds. Defaults to 0
         Duration (float, optional): duration of the measurement (in second). Defaults to 0.05
 
@@ -512,44 +563,11 @@ def PercentileFilterAlt(data, percentile):
 
 '''Metrics discussed with Mark and Maurits'''
 
-def SpikesMetric(filename, wellID, path, threshold=0.25):
-    """Extract spike metrics from BRW file.
+def SpikesMetric(SamplingRate, NumFrames, spikes_N, spikes_P, dataset_N, dataset_P, threshold=0.25):
     
-    Args:
-        filename (str): path to the BRW file
-        wellID (str): identifier of the selected well
-        path (str): path to directory containing pre-processed channel data (.npy files)
-        threshold (float, optional): spike rate threshold for active electrode detection. Defaults to 0.25.
-
-    Returns:
-        tuple: Contains the following elements:
-            - SamplingRate (float): sampling rate in Hz
-            - NumFrames (int): total number of frames
-            - spikes_N (list): negative spike frames per channel
-            - spikes_P (list): positive spike frames per channel
-            - spikes_frames_AE (array): spike frames for active electrodes
-            - Spikes_count (array): spike count per channel
-            - Spikes_rate (array): spike rate per channel
-            - ISI_map (array): interspike interval per channel
-            - ISI_variance_map (array): ISI variance per channel
-            - ISI_well_average (float): average ISI across well
-            - ISI_variance_well (float): ISI variance across well
-            - n_spikes_well (int): total spike count in well
-            - spikes_well_rate (float): spike rate for well
-            - Active_electrodes_ID (array): indices of active electrodes
-            - Active_electrodes_number (int): count of active electrodes
-            - peak_to_peak_map (array): peak-to-peak amplitude per channel
-            - peak_to_peak_std (array): peak-to-peak std per channel
-            - peak_to_peak_average_well (float): average peak-to-peak for well
-            - peak_to_peak_std_well (float): peak-to-peak std for well
-    """
-    brw = ReadBRW(filename, wellID)
-    toc = np.array(brw['TOC'])
-    NumFrames = toc[toc.shape[0]-1,1] 
-    SamplingRate= brw.attrs['SamplingRate']
-    NumChannels = np.array(brw[wellID + '/StoredChIdxs']).shape[0]  
-    dim = int(np.sqrt(NumChannels))
-    n_chs = NumChannels 
+    
+    
+    n_chs = len(spikes_N) 
     Spikes_count = np.zeros(n_chs)
     ISI_map = np.zeros(n_chs)
     ISI_variance_map = np.zeros(n_chs) 
@@ -557,32 +575,9 @@ def SpikesMetric(filename, wellID, path, threshold=0.25):
     peak_to_peak_std = np.zeros(n_chs)
     
     spikes_frames_well = [] 
-    peak_to_peak_well = []
-    
-    spikes_N = [[] for _ in range(n_chs)]
-    spikes_P = [[] for _ in range(n_chs)]
-    dataset_N = [[] for _ in range(n_chs)]
-    dataset_P = [[] for _ in range(n_chs)]
-    threads = 21
-    parameter = 5.4 
+    peak_to_peak_well = [] 
     chs = np.arange(n_chs)
-
-    t = time.time()
-    with ProcessPoolExecutor(max_workers=threads) as executor:
-        futures = {}
-        for i, ch in enumerate(chs):
-            if ch != 1901:
-                future = executor.submit(spk_sort.wrapper_SpikesDetection, (np.load(path+'ch'+str(ch)+'.npy'), ch, parameter, SamplingRate))
-                futures[future] = i
-        for future in as_completed(futures):
-            idx = futures[future]
-            spikes_N[idx] = (future.result())[0]
-            spikes_P[idx] = (future.result())[1]
-            dataset_N[idx] = (future.result())[2]
-            dataset_P[idx] = (future.result())[3]
-
-    print('spikes detection time: '+str(time.time()-t))  
-
+    
     for ch in range(n_chs):
         spikes_frames_N = spikes_N[ch] 
         spikes_frames_P = spikes_P[ch] 
@@ -634,63 +629,23 @@ def SpikesMetric(filename, wellID, path, threshold=0.25):
     spikes_frames_AE = np.array(sorted(spikes_frames_AE))
 
     ISI_well = np.diff(spikes_frames_AE)/SamplingRate*1000
+
     ISI_well_average = np.mean(ISI_well)
+
     ISI_variance_well = np.std(ISI_well)/ISI_well_average
 
     n_spikes_well = np.sum(Spikes_count)
+
     spikes_well_rate = n_spikes_well/NumFrames*SamplingRate
 
     peak_to_peak_average_well = np.mean(peak_to_peak_map)
     peak_to_peak_std_well = np.std(np.array(peak_to_peak_AE))/peak_to_peak_average_well
 
     return SamplingRate, NumFrames, spikes_N, spikes_P, spikes_frames_AE, Spikes_count, Spikes_rate, ISI_map, ISI_variance_map, ISI_well_average, ISI_variance_well, n_spikes_well, spikes_well_rate, Active_electrodes_ID, Active_electrodes_number, peak_to_peak_map, peak_to_peak_std, peak_to_peak_average_well, peak_to_peak_std_well
-
-def BurstsMetric(filename, wellID, path, threshold, n_min_spikes=5, ISI_max_seconds=0.1):
-    """Extract burst metrics from BRW file.
     
-    Args:
-        filename (str): path to the BRW file
-        wellID (str): identifier of the selected well
-        path (str): path to directory containing pre-processed channel data (.npy files)
-        threshold (float): spike rate threshold for active electrode detection
-        n_min_spikes (int, optional): minimum number of spikes to define a burst. Defaults to 5.
-        ISI_max_seconds (float, optional): maximum interspike interval within burst in seconds. Defaults to 0.1.
-
-    Returns:
-        tuple: Contains the following elements:
-            - Active_electrodes_ID (array): indices of active electrodes
-            - bursts (list): burst spike frames per channel
-            - n_bursts (array): burst count per channel
-            - bursts_rate (array): burst rate per channel (bursts/min)
-            - bursts_n_spikes (list): spike counts per burst per channel
-            - bursts_spikes_percentage (array): percentage of spikes in bursts per channel
-            - bursts_ISI (list): ISI within bursts per channel
-            - bursts_ISI_average (array): average burst ISI per channel
-            - bursts_n_spikes_average (array): average spikes per burst per channel
-            - bursts_duration (list): burst duration per channel in ms
-            - bursts_duration_average (array): average burst duration per channel
-            - IBI (list): inter-burst intervals per channel
-            - IBI_average (array): average IBI per channel
-            - IBI_std (array): IBI std per channel
-            - bursts_well (list): burst spike frames for whole well
-            - n_bursts_well (int): total burst count for well
-            - bursts_rate_well (float): burst rate for well
-            - bursts_duration_well_average (float): average burst duration for well
-            - bursts_duration_well_std (float): burst duration std for well
-            - IBI_well (array): inter-burst intervals for well
-            - IBI_well_average (float): average IBI for well
-            - IBI_well_std (float): IBI std for well
-            - bursts_n_spikes_well (array): spike counts per burst for well
-            - bursts_n_spikes_well_average (float): average spikes per burst for well
-            - bursts_n_spikes_well_std (float): spike count std for well
-            - bursts_ISI_well (array): ISI within bursts for well
-            - bursts_ISI_well_average (float): average burst ISI for well
-            - bursts_ISI_well_std (float): burst ISI std for well
-            - bursts_spikes_percentage_well (float): percentage of well spikes in bursts
-            - SamplingRate (float): sampling rate in Hz
-            - NumFrames (int): total number of frames
-    """
-    SamplingRate, NumFrames, spikes_N, spikes_P, spikes_frames_AE, Spikes_count, Spikes_rate, ISI_map, ISI_variance_map, ISI_well_average, ISI_variance_well, n_spikes_well, spikes_well_rate, Active_electrodes_ID, Active_electrodes_number, peak_to_peak_map, peak_to_peak_std, peak_to_peak_average_well, peak_to_peak_std_well = SpikesMetric(filename, wellID, path, threshold) 
+def BurstsMetric(SamplingRate, NumFrames, spikes_N, spikes_P, dataset_N, dataset_P, threshold, n_min_spikes=5, ISI_max_seconds=0.1):
+    
+    SamplingRate, NumFrames, spikes_N, spikes_P, spikes_frames_AE, Spikes_count, Spikes_rate, ISI_map, ISI_variance_map, ISI_well_average, ISI_variance_well, n_spikes_well, spikes_well_rate, Active_electrodes_ID, Active_electrodes_number, peak_to_peak_map, peak_to_peak_std, peak_to_peak_average_well, peak_to_peak_std_well = Spikes_metric(SamplingRate, NumFrames, spikes_N, spikes_P, dataset_N, dataset_P, threshold) 
 
     n_chs = len(spikes_N)
     dim = int(np.sqrt(Spikes_count.shape[0])) 
@@ -763,7 +718,7 @@ def BurstsMetric(filename, wellID, path, threshold, n_min_spikes=5, ISI_max_seco
     bursts_spikes_percentage = np.zeros(n_chs) 
     for ch in range(n_chs):
         if Spikes_count[ch]>0 and n_bursts[ch]>0:  
-            bursts_spikes_percentage[ch]  = n_bursts[ch]*bursts_n_spikes_average[ch]/n_spikes_well*100
+            bursts_spikes_percentage[ch]  = n_bursts[ch]*bursts_n_spikes_average[ch]/n_spikes_well*100  #vedere bene questa definizione
     bursts_ISI_average = np.array(bursts_ISI_average)
     bursts_duration_average = np.array(bursts_duration_average)
     IBI_average = np.array(IBI_average) 
@@ -815,10 +770,9 @@ def BurstsMetric(filename, wellID, path, threshold, n_min_spikes=5, ISI_max_seco
     IBI_well_average = np.mean(IBI_well)
     IBI_well_std = np.std(IBI_well)/IBI_well_average
 
-    print('Burst metric: '+str(time.time()-t))
-
     return Active_electrodes_ID, bursts, n_bursts, bursts_rate, bursts_n_spikes, bursts_spikes_percentage, bursts_ISI, bursts_ISI_average, bursts_n_spikes_average, bursts_duration, bursts_duration_average, IBI, IBI_average, IBI_std, bursts_well, n_bursts_well, bursts_rate_well, bursts_duration_well_average, bursts_duration_well_std, IBI_well, IBI_well_average, IBI_well_std, bursts_n_spikes_well, bursts_n_spikes_well_average, bursts_n_spikes_well_std, bursts_ISI_well, bursts_ISI_well_average, bursts_ISI_well_std, bursts_spikes_percentage_well, SamplingRate, NumFrames
 
+    
 def NetworkBurstMetric(filename, wellID, path, threshold, percentage_AE=0.5, time_window_seconds=0.25, n_min_spikes=5, ISI_max_seconds=0.1):
     """Extract network burst metrics from BRW file.
     
