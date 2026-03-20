@@ -1,4 +1,4 @@
-3D-BrAIn: 3D Brain Activity In vitro Network
+3D-BrAIn
 ============================================
 
 Welcome to the **3D-BrAIn** documentation! 
@@ -53,5 +53,4 @@ Contents
 
    GitHub Repository <https://github.com/cristinacampi/3D-BrAIn_codes>
    License <https://github.com/cristinacampi/3D-BrAIn_codes/blob/master/LICENSE>
-
 
