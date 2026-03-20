@@ -5,11 +5,11 @@ Welcome to the **3D-BrAIn** documentation!
 
 3D-BrAIn is a comprehensive Python package for advanced spike sorting, clustering, and deep learning-based signal synthesis for microelectrode array (MEA) recordings of neural networks.
 
-.. image:: https://img.shields.io/badge/python-3.8+-blue.svg
+.. image:: https://img.shields.io/badge/python-3.8+-blue.png
    :target: https://www.python.org/downloads/
    :alt: Python 3.8+
 
-.. image:: https://img.shields.io/badge/License-MIT-yellow.svg
+.. image:: https://img.shields.io/badge/License-MIT-yellow.png
    :target: https://opensource.org/licenses/MIT
    :alt: License: MIT
 
