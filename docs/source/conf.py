@@ -11,8 +11,8 @@ import sys
 sys.path.insert(0, os.path.abspath('../../src'))
 
 project = '3D-BrAIn'
-copyright = '2026, Cristina Campi, Lorenzo Sacchi, Maurits Unkel'
-author = 'Cristina Campi, Lorenzo Sacchi, Maurits Unkel'
+copyright = '2026, 3D-BrAIn'
+author = '3D-BrAIn'
 release = '1.0.0'
 
 # -- General configuration ---------------------------------------------------

@@ -4,7 +4,7 @@ A package for spike sorting, clustering, and GAN-based signal synthesis for MEA 
 """
 
 __version__ = '1.0.0'
-__author__ = 'Cristina Campi, Lorenzo Sacchi, Maurits Unkel'
+__author__ = '3D-BrAIn Team'
 
 from . import brw_functions
 from . import bxr_functions
