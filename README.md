@@ -21,17 +21,6 @@ Advanced spike sorting, clustering, and deep learning-based signal synthesis for
 
 ### Installation
 
-#### Using pip
-```bash
-pip install 3D-BrAIn
-```
-
-#### Using conda
-```bash
-conda env create -f environment.yml
-conda activate 3d-brain
-```
-
 #### From source
 ```bash
 git clone https://github.com/cristinacampi/3D-BrAIn_codes.git
