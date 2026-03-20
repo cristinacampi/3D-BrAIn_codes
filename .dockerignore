@@ -34,5 +34,4 @@ logs/
 *.brw
 *.bxr
 .ipynb_checkpoints
-README.md
 LICENSE
