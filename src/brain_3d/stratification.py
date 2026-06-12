@@ -4,7 +4,7 @@ import warnings
 np.warnings = warnings
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import minkowski
-from scipy.cluster.hierarchy import dendrogram, linkage, FclusterData
+from scipy.cluster.hierarchy import dendrogram, linkage, fclusterdata
 from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from sklearn.decomposition import PCA, FastICA, KernelPCA
@@ -13,7 +13,7 @@ from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from pyclustering.utils.metric import type_metric, distance_metric
 import pandas as pd
 import math
-import FCM
+from . import FCM
 import igraph as ig
 import leidenalg as la
 from kneed import KneeLocator
@@ -594,17 +594,17 @@ def HierarchicalClustering(Data, methodHC, Distance, ThresholdDendrogram, MaxCla
         Clusters (list): Clusters of the applied Algorithm.
     """
     if criterion == 'distance':
-        Fclust = FclusterData(Data, ThresholdDendrogram, criterion = 'distance', metric = Distance, method = methodHC)
+        Fclust = fclusterdata(Data, ThresholdDendrogram, criterion = 'distance', metric = Distance, method = methodHC)
 
     elif criterion=='maxclust':
         if type(MaxClasses) == int:
             kElbow = MaxClasses
-            Fclust = FclusterData(Data, kElbow, criterion = 'maxclust', metric = Distance, method = methodHC) 
+            Fclust = fclusterdata(Data, kElbow, criterion = 'maxclust', metric = Distance, method = methodHC)
         else:
             score = -1000
             for kElbow in MaxClasses:
                 print(kElbow)
-                FclustAux = FclusterData(Data, kElbow, criterion = 'maxclust', metric = Distance, method = methodHC) 
+                FclustAux = fclusterdata(Data, kElbow, criterion = 'maxclust', metric = Distance, method = methodHC)
                 ClustersAux = []
                 for i in range(max(FclustAux)):
                     indexes = np.where(FclustAux==i+1)[0]
@@ -1034,7 +1034,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
         
         elif Algo == "FCM":
             ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
-            Clusters, Centers, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, metric=distance)  
+            Clusters, Centers, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=distance)
             NClasses = len(Clusters)
 
         elif Algo == "KShape":
@@ -1078,7 +1078,6 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
                     Clusters.append(ClustersHC[i])
             NClasses = len(Clusters)
 
-        
         elif Algo == "PCA&KM":
             Data, DataPostPCA = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
             Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
@@ -1089,7 +1088,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
             ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
             MaxIter = 5
-            Clusters, Centers_FCM, membership_mat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, metric=distance)
+            Clusters, Centers_FCM, membership_mat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=distance)
             NClasses = len(Clusters)
 
 
@@ -1126,7 +1125,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             Data, DataPostICA   = ICA_Algo(Data=Data, ncomp = ica_ncomp)
             ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
             MaxIter = 5
-            Clusters, CentersFCM, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, metric=distance)
+            Clusters, CentersFCM, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=distance)
             NClasses = len(Clusters)
 
 
@@ -1164,7 +1163,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             Data, DataPostPCA  = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
             ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
             MaxIter = 5
-            Clusters, CentersFCM, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, metric=distance)
+            Clusters, CentersFCM, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=distance)
             NClasses = len(Clusters)
 
         return (NClasses, Clusters)
@@ -1315,6 +1314,3 @@ def GaussianNoise(Data, noise, seed):
             Data[i] = Data[i]+noise*np.random.normal(0,sigma,len(Data[i]))
 
     return Data
-
-
-        

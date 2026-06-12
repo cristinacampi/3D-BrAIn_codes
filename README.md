@@ -1,88 +1,62 @@
 # 3D-BrAIn
 
+3D-BrAIn is a Python package for working with 3Brain MEA recordings. It includes utilities for BRW/BXR file access, spike and burst analysis, spike sorting, clustering, merging-tree visualization, and GAN/VAE-GAN signal synthesis experiments.
+
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cristinacampi.github.io/3D-BrAIn_codes/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+## Main Modules
 
-## Features
+- `brain_3d.brw_functions`: read BRW recordings, decode raw data, filter traces, detect peaks, and convert recordings to data frames.
+- `brain_3d.bxr_functions`: read BXR spike, burst, waveform, and false-positive outputs.
+- `brain_3d.spike_sorting`: spike detection, template extraction, template matching, cross-correlograms, and channel-level sorting helpers.
+- `brain_3d.stratification`: distance metrics, normalization, dimensionality reduction, hierarchical clustering, k-means, k-shape, Leiden clustering, and recursive clustering.
+- `brain_3d.FCM`: fuzzy C-means clustering.
+- `brain_3d.merging_tree`: community merging tree construction and visualization.
+- `brain_3d.gan_functions` and `brain_3d.vaegan_functions`: PyTorch model components and training utilities for signal synthesis.
 
-- **Spike Detection & Sorting**: Multiple algorithms for detecting and clustering spike events
-- **Advanced Clustering**: K-means, Hierarchical Clustering, Leiden graph-based clustering
-- **Distance Metrics**: DTW, WDTW, LCSS, EDR, Minkowski, correlation-based distances
-- **Template Matching**: Pearson correlation-based template matching with greedy matching
-- **GAN-based Synthesis**: VAE-GAN architecture for generating synthetic neural signals
-- **Comprehensive Analysis**: Burst detection, network metrics, cross-correlations
-- **Parallel Processing**: Multi-threaded and GPU-accelerated computations
-- **File I/O**: Support for BRW (3Brain), BXR formats, HDF5, and CSV
+## Installation
 
-## Quick Start
+Use Python 3.8 or newer.
 
-### Installation
-
-#### From source
 ```bash
 git clone https://github.com/cristinacampi/3D-BrAIn_codes.git
 cd 3D-BrAIn_codes
-pip install -e .
+python3 -m pip install -e .
 ```
 
-#### Using Docker
+For development and documentation work:
+
 ```bash
-docker build -t 3d-brain:latest .
-docker run -it -v $(pwd):/app 3d-brain:latest
+python3 -m pip install -e ".[dev]"
 ```
 
-## Project Structure
-
-```
-3D-BrAIn_codes/
-├── src/
-│   └── brain_3d/              # Main package
-│       ├── __init__.py
-│       ├── spike_sorting.py           # Spike detection and sorting
-│       ├── merging_tree.py            # Hierarchical merging tree
-│       ├── gan_functions.py           # GAN models and training
-│       ├── vaegan_functions.py        # VAE-GAN implementation
-│       ├── brw_functions.py           # BRW file I/O
-│       ├── bxr_functions.py           # BXR file operations
-│       ├── stratification.py          # Stratification algorithms
-│       └── FCM.py                     # Fuzzy C-Means clustering
-├── docs/                      # Sphinx documentation
-│   ├── source/
-│   └── build/
-├── requirements.txt           # Python dependencies
-├── environment.yml            # Conda environment
-├── setup.py                   # Package installation
-├── Dockerfile                 # Docker configuration
-├── docker-compose.yml         # Docker Compose setup
-└── README.md                  # This file
-```
+GPU support depends on a PyTorch build compatible with your CUDA installation.
 
 
-GPU acceleration available with CUDA.
+## Documentation
 
-Build locally:
+The Sphinx documentation lives in `docs/source`.
+
+Build it locally with:
+
 ```bash
 cd docs
-../.venv/bin/python -m sphinx -b html source build/html
-# Open build/html/index.html
+python3 -m sphinx -b html source build/html
 ```
 
-## Publish docs on GitHub Pages (Sphinx)
+Open `docs/build/html/index.html` after the build completes.
 
-This repository includes an automated workflow at `.github/workflows/sphinx-gh-pages.yml`.
+## Repository Layout
 
-1. Push to the `main` branch.
-2. In GitHub, open **Settings → Pages**.
-3. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-
-After the workflow completes, docs are published at:
-
-`https://cristinacampi.github.io/3D-BrAIn_codes/`
-
+```text
+src/brain_3d/       Package source code
+docs/source/        Sphinx documentation source
+requirements.txt    Runtime and documentation dependencies
+environment.yml     Conda environment
+setup.py            Package metadata
+```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

@@ -5,8 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy
-from brain_3d import stratification
-import brw_functions as brw_f
+from . import stratification
+from . import brw_functions as brw_f
 import time
 from scipy.signal import find_peaks, butter, filtfilt
 from statistics import median
@@ -14,7 +14,7 @@ from scipy.stats import pearsonr
 import igraph as ig
 from igraph import Graph, plot
 import leidenalg as la
-import merging_tree as merge
+from . import merging_tree as merge
 import matplotlib.patches as mpatches
 from neo import SpikeTrain 
 import quantities as pq
@@ -554,6 +554,5 @@ def LinkChsSpksort(results):
     gc.collect()
 
     return common_neuron
-
 
 

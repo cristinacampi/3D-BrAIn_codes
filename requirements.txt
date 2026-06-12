@@ -22,6 +22,7 @@ python-igraph>=0.9.0
 leidenalg>=0.9.0
 pyclustering>=0.10.0
 kneed>=0.8.1
+tslearn>=0.6.0
 
 # Utilities
 psutil>=5.9.0

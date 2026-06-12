@@ -1,14 +1,14 @@
-3D-BrAIn_codes
-==============
+Module Reference
+================
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
    FCM
    brw_functions
    bxr_functions
-   gan_functions
-   merging_tree
    spike_sorting
    stratification
+   merging_tree
+   gan_functions
    vaegan_functions

@@ -8,7 +8,7 @@ import h5py
 import pywt
 import math
 import scipy
-import bxr_functions
+from . import bxr_functions
 import time
 from scipy.signal import find_peaks, butter, filtfilt, wiener, iirnotch
 from statistics import median
@@ -556,4 +556,3 @@ def PlotlyGraph(Data, ch):
     df = pd.DataFrame({'x_axis': np.arange(Data.shape[0]), 'y_axis': Data[:,ch] })
     fig = px.line(df, x='x_axis', y='y_axis', title='Channel '+str(ch))
     fig.write_html('Graph_channel_'+str(ch)+'.html')   
-
