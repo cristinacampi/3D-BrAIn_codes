@@ -10,175 +10,175 @@ import h5py
 import time
 from . import brw_functions as brw_f
 
-def ReadBXR(filename, wellID):
+def ReadBXR(Filename, WellID):
     """
-    Read bxr file, return the bxr data and print some information about the file:
+    Read Bxr file, return the Bxr Data and print some information about the file:
     -file's name; 
-    -data and time of the recording; 
+    -Data and time of the recording; 
     -number of channels; 
     -length of the recording; 
-    -number of frames recorded; 
+    -number of Frames recorded; 
     -sampling frequency
 
 
     Args:
-        filename (str): name of the file and its extension .bxr 
-        wellID (str): identifier of the selected well
+        Filename (str): name of the file and its extension .Bxr 
+        WellID (str): identifier of the selected well
 
     Returns:
-        bxr (h5py): the bxr file in h5py
+        Bxr (h5py): the Bxr file in h5py
     """    
-    bxr = h5py.File(filename)
+    Bxr = h5py.File(Filename)
 
-    toc = np.array(bxr['TOC'])
+    toc = np.array(Bxr['TOC'])
     NumFrames = toc[toc.shape[0]-1,1]
-    SamplingRate= bxr.attrs['SamplingRate']
-    NumChannels = np.array(bxr[wellID + '/StoredChIdxs']).shape[0]
+    SamplingRate = Bxr.attrs['SamplingRate']
+    NumChannels = np.array(Bxr[WellID + '/StoredChIdxs']).shape[0]
     Duration = NumFrames/SamplingRate
 
-    print('--- File: ' + filename + ' ---')
+    print('--- File: ' + Filename + ' ---')
     print('Number of Channels: ' + str(NumChannels))
     print('File Duration: ' + str(Duration))
     print('Total Number of Frames: ' + str(NumFrames))
     print('Sampling Frequency: ' + str(SamplingRate) + ' Hz')
     print('---')
 
-    return bxr
+    return Bxr
 
-def ConversionTimeToFrames(bxr, Time):
+def ConversionTimeToFrames(Bxr, Time):
     """
-    Convert time in seconds to frames based on sampling frequency.
+    Convert time in seconds to Frames based on sampling frequency.
 
     Args:
-        bxr (BxrFile): BXR file object
+        Bxr (BxrFile): BXR file object
         Time (float): time in seconds
 
     Returns:
-        int: number of frames corresponding to the time in seconds
+        int: number of Frames corresponding to the time in seconds
     """    
-    SamplingRate = bxr.attrs['SamplingRate']
+    SamplingRate = Bxr.attrs['SamplingRate']
     Frames = int(Time * SamplingRate)
     return Frames
 
-def Spikes2df(bxr, wellID, startTime = 0, Duration = 0.05):
+def Spikes2Df(Bxr, WellID, StartTime = 0, Duration = 0.05):
     """ 
-    Selected a BXR file and a well, we read the frames and the channel where
+    Selected a BXR file and a well, we read the Frames and the channel where
     spikes were detected (in a selected time interval)
 
     Args:
-        bxr (BXRFile): bxr data
-        wellID (str): identifier of the selected well
-        startTime (float, optional): starting time in seconds. Defaults to 0
+        Bxr (BXRFile): Bxr Data
+        WellID (str): identifier of the selected well
+        StartTime (float, optional): starting time in seconds. Defaults to 0
         Duration (float, optional): duration of the measurement (in second). Defaults to 0.05
 
     Returns:
-        SpikesFrames (array): it contains the frames when spikes occured; if N channels have a spike at the frame T, then the frame T is repeated N times in the array
-        SpikeChannels (array): it contains the channel that measured the spikes
+        SpikesFrames (array): It contains the Frames when spikes occured; if N channels have a spike at the frame T, then the frame T is repeated N times in the array
+        SpikeChannels (array): It contains the channel that measured the spikes
     """    
-    startFrame = ConversionTimeToFrames(bxr, startTime)
-    endFrame = startFrame + ConversionTimeToFrames(bxr, Duration)
-    SpikeFrames = np.array(bxr[wellID+'/SpikeTimes'])
-    SpikeChannels = np.array(bxr[wellID+'/SpikeChIdxs'])
-    indexes = np.where((SpikeFrames>=startFrame)&(SpikeFrames<=endFrame))[0]
-    return SpikeFrames[indexes], SpikeChannels[indexes]
+    StartFrame = ConversionTimeToFrames(Bxr, StartTime)
+    EndFrame = StartFrame + ConversionTimeToFrames(Bxr, Duration)
+    SpikeFrames = np.array(Bxr[WellID+'/SpikeTimes'])
+    SpikeChannels = np.array(Bxr[WellID+'/SpikeChIdxs'])
+    Indexes = np.where((SpikeFrames>=StartFrame)&(SpikeFrames<=EndFrame))[0]
+    return SpikeFrames[Indexes], SpikeChannels[Indexes]
 
-def CleanSpikes(bxr, wellID, PercentageChannels):
+def CleanSpikes(Bxr, WellID, PercentageChannels):
     """
     Selected a BXR file, a well and a percentage of channels p, 
-    we distinguish the frames showing a number of spikes in a number
+    we distinguish the Frames showing a number of spikes in a number
     of channel larger and smaller than
-    the threshold value (PercentageChannels)x(Number of channels)
+    the Threshold value (PercentageChannels)x(Number of channels)
 
     Args:
-        bxr (BXRFile): file bxr opened from its path
-        wellID (str): identifier of the selected well
+        Bxr (BXRFile): file Bxr opened from its path
+        WellID (str): identifier of the selected well
         PercentageChannels (float): percentage of channels
 
     Returns:
-        Spikes_lower (list): it contains the frames with a number of spikes smaller than the threshold
-        Spikes_upper (list): it contains the frames  a number of spikes larger than the threshold
+        SpikesLower (list): It contains the Frames with a number of spikes smaller than the Threshold
+        SpikesUpper (list): It contains the Frames  a number of spikes larger than the Threshold
     """    
-    SpikeFrames = np.array(bxr[wellID+'/SpikeTimes'])
-    SpikeChannels = np.array(bxr[wellID+'/SpikeChIdxs'])
+    SpikeFrames = np.array(Bxr[WellID+'/SpikeTimes'])
+    SpikeChannels = np.array(Bxr[WellID+'/SpikeChIdxs'])
     DifferentFrame = np.unique(SpikeFrames)
-    Spikes_lower = []
-    Spikes_upper = []
-    NumChannels = np.array(bxr[wellID + '/StoredChIdxs']).shape[0]
-    threshold = round(PercentageChannels*NumChannels/100)
+    SpikesLower = []
+    SpikesUpper = []
+    NumChannels = np.array(Bxr[WellID + '/StoredChIdxs']).shape[0]
+    Threshold = round(PercentageChannels*NumChannels/100)
     for t in DifferentFrame:
-        index = np.where(SpikeFrames == t)[0]
-        tupla = (t, SpikeChannels[index])
-        if len(tupla[1]) < threshold:
-            Spikes_lower.append(tupla)
+        Index = np.where(SpikeFrames == t)[0]
+        Tupla = (t, SpikeChannels[Index])
+        if len(Tupla[1]) < Threshold:
+            SpikesLower.append(Tupla)
         else:
-            Spikes_upper.append(tupla)
-    return  Spikes_lower, Spikes_upper
+            SpikesUpper.append(Tupla)
+    return  SpikesLower, SpikesUpper
 
-def RasterPlot(bxr, wellID, startTime=0, Duration=0.05):
+def RasterPlot(Bxr, WellID, StartTime=0, Duration=0.05):
     """Plot raster diagram of spike events in a selected time interval.
 
     Args:
-        bxr (BxrFile): file bxr opened from its path
-        wellID (str): identifier of the selected well
-        startTime (float, optional): starting time in seconds. Defaults to 0.
+        Bxr (BxrFile): file Bxr opened from its path
+        WellID (str): identifier of the selected well
+        StartTime (float, optional): starting time in seconds. Defaults to 0.
         Duration (float, optional): duration of the measurement in seconds. Defaults to 0.05.
 
     Returns:
         None (displays matplotlib plot)
     """    
-    SpikeFrames, SpikeChannels = Spikes2df(bxr, wellID, startTime, Duration)
-    SamplingRate = bxr.attrs['SamplingRate']
+    SpikeFrames, SpikeChannels = Spikes2Df(Bxr, WellID, StartTime, Duration)
+    SamplingRate = Bxr.attrs['SamplingRate']
 
     if len(SpikeFrames)==0:
-        print('No spikes in the time interval ['+str(startTime)+', '+str(startTime+Duration)+']')
+        print('No spikes in the time interval ['+str(StartTime)+', '+str(StartTime+Duration)+']')
     else:
 
-        NumChannels = np.array(bxr[wellID + '/StoredChIdxs']).shape[0]
+        NumChannels = np.array(Bxr[WellID + '/StoredChIdxs']).shape[0]
         SpikeTimes = SpikeFrames/SamplingRate
 
-        data = []
-        for it in np.arange(NumChannels):
-            aux = np.where(SpikeChannels==it)
-            if len(aux[0])>0:
-                tt = SpikeTimes[aux]
-                data.append(tt)
+        Data = []
+        for It in np.arange(NumChannels):
+            Aux = np.where(SpikeChannels==It)
+            if len(Aux[0])>0:
+                Tt = SpikeTimes[Aux]
+                Data.append(Tt)
             else:
-                data.append([])
+                Data.append([])
 
             
         plt.figure()
-        plt.eventplot(data, colors='black', lineoffsets=1, linelengths=2)
-        plt.title('Spikes Raster Plot, Time interval = ['+str(startTime)+', '+str(startTime+Duration)+']')
+        plt.eventplot(Data, colors='black', lineoffsets=1, linelengths=2)
+        plt.title('Spikes Raster Plot, Time interval = ['+str(StartTime)+', '+str(StartTime+Duration)+']')
         plt.xlabel('(sec)')
         plt.ylabel('(channels)')
         plt.show()
 
-def Burst2df(bxr, wellID, startTime = 0, Duration = 0.05):
+def Burst2Df(Bxr, WellID, StartTime = 0, Duration = 0.05):
     """
     Selected a BXR file and a well, we read when and where we have bursts in a selected time interval
 
     Args:
-        bxr (BXRFile): file bxr opened from its path
-        wellID (str): identifier of the selected well
-        startTime (float, optional): starting time in seconds. Defaults to 0
+        Bxr (BXRFile): file Bxr opened from its path
+        WellID (str): identifier of the selected well
+        StartTime (float, optional): starting time in seconds. Defaults to 0
         Duration (float, optional): duration of the measurement (in second) I want to consider. Defaults to 0.05
 
     Returns:
-        BurstFrames (array): a 1-dimensional array representing the time instant, in frames, in which each spike burst has been detected
-        BurstChannels (array): a 1-dimensional array representing for each detected spike burst the linear index of the channel it has been recorded on
+        BurstFrames (array): a 1-dimensional array representing the time instant, in Frames, in which each spike burst has been detected
+        BurstChannels (array): a 1-dimensional array representing for each detected spike burst the linear Index of the channel It has been recorded on
     """    
-    BurstFrames = np.array(bxr[wellID+'/SpikeBurstTimes'])
-    BurstChannels = np.array(bxr[wellID+'/SpikeBurstChIdxs'])
+    BurstFrames = np.array(Bxr[WellID+'/SpikeBurstTimes'])
+    BurstChannels = np.array(Bxr[WellID+'/SpikeBurstChIdxs'])
     #starting frame
-    startFrame = ConversionTimeToFrames(bxr, startTime)
-    #number of frames considered
-    NumFrames = ConversionTimeToFrames(bxr, Duration)
-    endFrame = startFrame+NumFrames
+    StartFrame = ConversionTimeToFrames(Bxr, StartTime)
+    #number of Frames considered
+    NumFrames = ConversionTimeToFrames(Bxr, Duration)
+    EndFrame = StartFrame+NumFrames
 
     cont = 0
     i = 0
     while cont == 0:
-        if (startFrame > BurstFrames[i][0]) & (startFrame > BurstFrames[i][1]):
+        if (StartFrame > BurstFrames[i][0]) & (StartFrame > BurstFrames[i][1]):
             i += 1
         else:
             cont +=1
@@ -186,12 +186,12 @@ def Burst2df(bxr, wellID, startTime = 0, Duration = 0.05):
     cont = 0
     j = 0
     while cont == 0:
-        if (endFrame > BurstFrames[j][1]) & (endFrame > BurstFrames[j+1][0]):
+        if (EndFrame > BurstFrames[j][1]) & (EndFrame > BurstFrames[j+1][0]):
             j += 1
         else:
             cont +=1
     
-    if (endFrame <= BurstFrames[0][0]) or (j-i) <0 :
+    if (EndFrame <= BurstFrames[0][0]) or (j-i) <0 :
         BurstFrames = []
         BurstChannels = []
     elif j-i == 0:
@@ -202,353 +202,361 @@ def Burst2df(bxr, wellID, startTime = 0, Duration = 0.05):
         BurstChannels = BurstChannels[i : j+1]
     return BurstFrames, BurstChannels
 
-def BurstPlot(bxr, wellID, startTime=0, Duration=0.01):
+def BurstPlot(Bxr, WellID, StartTime=0, Duration=0.01):
     """Plot burst events in a selected time interval with color-coded channels.
 
     Args:
-        bxr (BxrFile): file bxr opened from its path
-        wellID (str): identifier of the selected well
-        startTime (float, optional): starting time in seconds. Defaults to 0.
+        Bxr (BxrFile): file Bxr opened from its path
+        WellID (str): identifier of the selected well
+        StartTime (float, optional): starting time in seconds. Defaults to 0.
         Duration (float, optional): duration of the measurement in seconds. Defaults to 0.01.
 
     Returns:
         None (displays matplotlib plot)
     """
-    BurstFrames, BurstChannels = Burst2df(bxr, wellID, startTime, Duration)
+    BurstFrames, BurstChannels = Burst2Df(Bxr, WellID, StartTime, Duration)
 
     if len(BurstFrames) == 0:
-        print('No bursts in the time interval ['+str(startTime)+', '+str(startTime+Duration)+']')
+        print('No bursts in the time interval ['+str(StartTime)+', '+str(StartTime+Duration)+']')
     else:
         #starting frame
-        startFrame = ConversionTimeToFrames(bxr, startTime)
-        #number of frames considered
-        NumFrames = ConversionTimeToFrames(bxr, Duration)
-        endFrame = startFrame+NumFrames
-        SamplingRate = bxr.attrs['SamplingRate']
+        StartFrame = ConversionTimeToFrames(Bxr, StartTime)
+        #number of Frames considered
+        NumFrames = ConversionTimeToFrames(Bxr, Duration)
+        EndFrame = StartFrame+NumFrames
+        SamplingRate = Bxr.attrs['SamplingRate']
         if len(BurstFrames)==1:
-            if startFrame > BurstFrames[0]:
-                BurstFrames[0] = startFrame
-            if endFrame < BurstFrames[1]:
-                BurstFrames[1] = endFrame
+            if StartFrame > BurstFrames[0]:
+                BurstFrames[0] = StartFrame
+            if EndFrame < BurstFrames[1]:
+                BurstFrames[1] = EndFrame
         else:
-            if startFrame > BurstFrames[0][0]:
-                BurstFrames[0][0] = startFrame
-            if endFrame < BurstFrames[len(BurstFrames)-1][1]:
-                BurstFrames[len(BurstFrames)-1][1] = endFrame
-        BurstChannels_unique = np.unique(BurstChannels)
-        BurstTimes_extended = []
+            if StartFrame > BurstFrames[0][0]:
+                BurstFrames[0][0] = StartFrame
+            if EndFrame < BurstFrames[len(BurstFrames)-1][1]:
+                BurstFrames[len(BurstFrames)-1][1] = EndFrame
+        BurstChannelsUnique = np.unique(BurstChannels)
+        BurstTimesExtended = []
         if len(BurstFrames)==1:
-            for it in np.arange(len(BurstFrames)):
+            for It in np.arange(len(BurstFrames)):
                 f1 = BurstFrames[0]
                 f2 = BurstFrames[1]
-                BurstTimes_extended.append(np.arange(f1,f2+1)/SamplingRate)
+                BurstTimesExtended.append(np.arange(f1,f2+1)/SamplingRate)
         else: 
-            for it in np.arange(len(BurstFrames)):
-                f1 = BurstFrames[it, 0]
-                f2 = BurstFrames[it, 1]
-                BurstTimes_extended.append(np.arange(f1,f2+1)/SamplingRate)
-        NumChannels = np.array(bxr[wellID + '/StoredChIdxs']).shape[0]
+            for It in np.arange(len(BurstFrames)):
+                f1 = BurstFrames[It, 0]
+                f2 = BurstFrames[It, 1]
+                BurstTimesExtended.append(np.arange(f1,f2+1)/SamplingRate)
+        NumChannels = np.array(Bxr[WellID + '/StoredChIdxs']).shape[0]
         count = 0
-        data = []
-        for it in np.arange(NumChannels):
-            aux = np.where(BurstChannels == it)
-            if len(aux[0]) > 0:
-                tt = np.empty((0,))
-                for it_aux in np.arange(len(aux[0])):
-                    aux_list = BurstTimes_extended[aux[0][it_aux]]
-                    tt = np.concatenate((tt,aux_list))
-                data.append(tt)
+        Data = []
+        for It in np.arange(NumChannels):
+            Aux = np.where(BurstChannels == It)
+            if len(Aux[0]) > 0:
+                Tt = np.empty((0,))
+                for ItAux in np.arange(len(Aux[0])):
+                    AuxList = BurstTimesExtended[Aux[0][ItAux]]
+                    Tt = np.concatenate((Tt,AuxList))
+                Data.append(Tt)
                 count = count+1
             #else:
-            #    data.append([])
+            #    Data.append([])
         colors1 = ['C{}'.format(i) for i in range(count)]
         fig, ax = plt.subplots()
-        plt.eventplot(data, colors=colors1)
-        plt.title('Burst Plot, Time interval = ['+str(startTime)+', '+str(startTime+Duration)+']')
+        plt.eventplot(Data, colors=colors1)
+        plt.title('Burst Plot, Time interval = ['+str(StartTime)+', '+str(StartTime+Duration)+']')
         plt.xlabel('(sec)')
         plt.ylabel('(channels)')
         plt.yticks(np.arange(count))
-        ax.set_yticklabels(BurstChannels_unique)
+        ax.set_yticklabels(BurstChannelsUnique)
         plt.show()
 
-def WaveformsPlot(bxr, wellID, startTime=0, Duration=0.01, chIdx=0):
+def WaveformsPlot(Bxr, WellID, StartTime=0, Duration=0.01, ChIdx=0):
     """Plot spike waveforms for a specific channel in a selected time interval.
 
     Args:
-        bxr (BxrFile): file bxr opened from its path
-        wellID (str): identifier of the selected well
-        startTime (float, optional): starting time in seconds. Defaults to 0.
+        Bxr (BxrFile): file Bxr opened from its path
+        WellID (str): identifier of the selected well
+        StartTime (float, optional): starting time in seconds. Defaults to 0.
         Duration (float, optional): duration of the measurement in seconds. Defaults to 0.01.
-        chIdx (int, optional): channel index to plot. Defaults to 0.
+        ChIdx (int, optional): channel Index to plot. Defaults to 0.
 
     Returns:
         None (displays matplotlib plot)
     """
     #starting frame
-    startFrame = ConversionTimeToFrames(bxr, startTime)
-    #number of frames considered
-    NumFrames = ConversionTimeToFrames(bxr, Duration)   
+    StartFrame = ConversionTimeToFrames(Bxr, StartTime)
+    #number of Frames considered
+    NumFrames = ConversionTimeToFrames(Bxr, Duration)   
     # collect the TOCs
-    toc = np.array(bxr['TOC'])
-    spikeToc = np.array(bxr[wellID + '/SpikeTOC'])
+    toc = np.array(Bxr['TOC'])
+    spikeToc = np.array(Bxr[WellID + '/SpikeTOC'])
 
     # collect experiment information
-    minDigitalValue = bxr.attrs['MinDigitalValue']
-    maxDigitalValue = bxr.attrs['MaxDigitalValue']
-    minAnalogValue = bxr.attrs['MinAnalogValue']
-    maxAnalogValue = bxr.attrs['MaxAnalogValue']
-    dacFactor = (maxAnalogValue - minAnalogValue) / (maxDigitalValue - minDigitalValue)
-    offsetValue = minAnalogValue - dacFactor * minDigitalValue
-    samplingRate = bxr.attrs['SamplingRate']
-    chIdxs = np.array(bxr[wellID + '/StoredChIdxs'])
+    MinDigitalValue = Bxr.attrs['MinDigitalValue']
+    MaxDigitalValue = Bxr.attrs['MaxDigitalValue']
+    MinAnalogValue = Bxr.attrs['MinAnalogValue']
+    MaxAnalogValue = Bxr.attrs['MaxAnalogValue']
+    dacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
+    OffsetValue = MinAnalogValue - dacFactor * MinDigitalValue
+    SamplingRate = Bxr.attrs['SamplingRate']
+    ChIdxs = np.array(Bxr[WellID + '/StoredChIdxs'])
 
-    # from the given start position and duration (in frames), find the corresponding range of spike positions using the TOC
-    tocStartIdx = np.searchsorted(toc[:, 1], startFrame)
-    tocEndIdx = min(np.searchsorted(toc[:, 1], startFrame + NumFrames, side='right') + 1, len(toc) - 1)
-    spikeStartPosition = spikeToc[tocStartIdx]
-    spikeEndPosition = spikeToc[tocEndIdx]
+    # from the given start position and duration (in Frames), find the corresponding range of spike positions using the TOC
+    TocStartIdx = np.searchsorted(toc[:, 1], StartFrame)
+    TocEndIdx = min(np.searchsorted(toc[:, 1], StartFrame + NumFrames, side='right') + 1, len(toc) - 1)
+    SpikeStartPosition = spikeToc[TocStartIdx]
+    SpikeEndPosition = spikeToc[TocEndIdx]
 
-    # collect the required spike data
-    spikeDataTimestamps = bxr[wellID + '/SpikeTimes'][spikeStartPosition:spikeEndPosition]
-    spikeDataChIdxs = bxr[wellID + '/SpikeChIdxs'][spikeStartPosition:spikeEndPosition]
+    # collect the required spike Data
+    SpikeDataTimestamps = Bxr[WellID + '/SpikeTimes'][SpikeStartPosition:SpikeEndPosition]
+    SpikeDataChIdxs = Bxr[WellID + '/SpikeChIdxs'][SpikeStartPosition:SpikeEndPosition]
 
-    spikeSortingPerformed = bxr.__contains__(wellID + '/SpikeUnits')
-    if spikeSortingPerformed:
-        spikeDataChUnits = bxr[wellID + '/SpikeUnits'][spikeStartPosition:spikeEndPosition]
+    SpikeSortingPerformed = Bxr.__contains__(WellID + '/SpikeUnits')
+    if SpikeSortingPerformed:
+        SpikeDataChUnits = Bxr[WellID + '/SpikeUnits'][SpikeStartPosition:SpikeEndPosition]
 
-    waveformLength = bxr[wellID + '/SpikeForms'].attrs['Wavelength']
-    spikeDataWaveforms = bxr[wellID + '/SpikeForms'][spikeStartPosition*waveformLength:spikeEndPosition*waveformLength]
-    dataLength = spikeEndPosition - spikeStartPosition
+    WaveformLength = Bxr[WellID + '/SpikeForms'].attrs['Wavelength']
+    SpikeDataWaveforms = Bxr[WellID + '/SpikeForms'][SpikeStartPosition*WaveformLength:SpikeEndPosition*WaveformLength]
+    DataLength = SpikeEndPosition - SpikeStartPosition
 
-    # collect the waveforms for the given time range and channel index
-    waveformData = {} if spikeSortingPerformed else []
+    # collect the waveforms for the given time range and channel Index
+    WaveformData = {} if SpikeSortingPerformed else []
     ts = []
-    for i in range(0, dataLength):
-        if spikeDataChIdxs[i] == chIdx and startFrame <= spikeDataTimestamps[i] < startFrame + NumFrames:
+    for i in range(0, DataLength):
+        if SpikeDataChIdxs[i] == ChIdx and StartFrame <= spikeDataTimestamps[i] < StartFrame + NumFrames:
             ts.append(spikeDataTimestamps[i])
             if spikeSortingPerformed:
                 spikeUnit = spikeDataChUnits[i]
-                if spikeUnit not in waveformData.keys():
-                    waveformData[spikeUnit] = []
-                waveformData[spikeUnit].append(spikeDataWaveforms[i*waveformLength:i*waveformLength+waveformLength])
+                if spikeUnit not in WaveformData.keys():
+                    WaveformData[spikeUnit] = []
+                WaveformData[spikeUnit].append(SpikeDataWaveforms[i*waveformLength:i*waveformLength+waveformLength])
             else:
-                waveformData.append(spikeDataWaveforms[i*waveformLength:i*waveformLength+waveformLength])
+                WaveformData.append(SpikeDataWaveforms[i*waveformLength:i*waveformLength+waveformLength])
     
-    # visualize waveforms for the given channel index, if spike sorting was performed,
+    # visualize waveforms for the given channel Index, if spike sorting was performed,
     # units will be plotted with different colors
-    if len(waveformData)==0:
-        print('No waveforms for the channel '+str(chIdx)+' in the time interval ['+str(startTime)+', '+str(startTime+Duration)+']')
+    if len(WaveformData)==0:
+        print('No waveforms for the channel '+str(ChIdx)+' in the time interval ['+str(StartTime)+', '+str(StartTime+Duration)+']')
 
     else:
         plt.figure()
-        x = np.arange(0, waveformLength, 1) / samplingRate
+        x = np.arange(0, WaveformLength, 1) / SamplingRate
 
         if spikeSortingPerformed:
             colors = list(mcolors.BASE_COLORS.keys())
             c = 0
-            for unit in waveformData:
-                for waveform in waveformData[unit]:
+            for unit in WaveformData:
+                for waveform in WaveformData[unit]:
                     # convert the waveform to analog
-                    y = offsetValue + dacFactor * waveform
+                    y = OffsetValue + dacFactor * waveform
                     plt.plot(x, y, color=colors[c])
                 c += 1
         else:
-            for waveform in waveformData:
+            for waveform in WaveformData:
                 # convert the waveform to analog
-                y = offsetValue + dacFactor * waveform
+                y = OffsetValue + dacFactor * waveform
                 plt.plot(x, y, color='blue')
 
-        plt.title('Spike waveforms = '+str(len(ts))+', channel = '+ str(chIdx+1)+', '+'Time interval=['+str(startTime)+', '+str(startTime+Duration)+']')
+        plt.title('Spike waveforms = '+str(len(ts))+', channel = '+ str(ChIdx+1)+', '+'Time interval=['+str(StartTime)+', '+str(StartTime+Duration)+']')
         plt.xlabel('(sec)')
         plt.ylabel('(uV)')
         plt.legend()
         plt.show()
 
-def FP2df(bxr, wellID, startTime = 0, Duration = 0.05):
+def FP2Df(Bxr, WellID, StartTime = 0, Duration = 0.05):
     """
     Selected a BXR file and a well, we read when and where we have a FP in a selected time interval
 
     Args:
-        bxr (BXRFile): file bxr opened from its path
-        wellID (str): identifier of the selected well
-        startTime (float, optional): starting time in seconds. Defaults to 0
+        Bxr (BXRFile): file Bxr opened from its path
+        WellID (str): identifier of the selected well
+        StartTime (float, optional): starting time in seconds. Defaults to 0
         Duration (float, optional): duration of the measurement (in second) I want to consider. Defaults to 0.05
 
     Returns:
-        FPFrames (array): it contains the frames when FPs occured; 
-        FPChannels (array): it contains the channel that measured the FPs
+        FPFrames (array): It contains the Frames when FPs occured; 
+        FPChannels (array): It contains the channel that measured the FPs
     """    
-    startFrame = ConversionTimeToFrames(bxr, startTime)
-    endFrame = startFrame + ConversionTimeToFrames(bxr, Duration)
-    FPFrames = np.array(bxr[wellID+'/FpTimes'])
-    FPChannels = np.array(bxr[wellID+'/FpChIdxs'])
-    indexes = np.where((FPFrames>=startFrame)&(FPFrames<=endFrame))[0]
-    return FPFrames[indexes], FPChannels[indexes]
+    StartFrame = ConversionTimeToFrames(Bxr, StartTime)
+    EndFrame = StartFrame + ConversionTimeToFrames(Bxr, Duration)
+    FPFrames = np.array(Bxr[WellID+'/FpTimes'])
+    FPChannels = np.array(Bxr[WellID+'/FpChIdxs'])
+    Indexes = np.where((FPFrames>=StartFrame)&(FPFrames<=EndFrame))[0]
+    return FPFrames[Indexes], FPChannels[Indexes]
 
-def FPFormPlot(bxr, wellID, startTime=0, Duration=0.05, chIdx=0):
+def FPFormPlot(Bxr, WellID, StartTime=0, Duration=0.05, ChIdx=0):
     """Plot false positive waveforms for a specific channel in a selected time interval.
 
     Args:
-        bxr (BxrFile): file bxr opened from its path
-        wellID (str): identifier of the selected well
-        startTime (float, optional): starting time in seconds. Defaults to 0.
+        Bxr (BxrFile): file Bxr opened from its path
+        WellID (str): identifier of the selected well
+        StartTime (float, optional): starting time in seconds. Defaults to 0.
         Duration (float, optional): duration of the measurement in seconds. Defaults to 0.05.
-        chIdx (int, optional): channel index to plot. Defaults to 0.
+        ChIdx (int, optional): channel Index to plot. Defaults to 0.
 
     Returns:
         None (displays matplotlib plot)
     """  
     #starting frame
-    startFrame = ConversionTimeToFrames(bxr, startTime)
-    #number of frames considered
-    NumFrames = ConversionTimeToFrames(bxr, Duration)  
+    StartFrame = ConversionTimeToFrames(Bxr, StartTime)
+    #number of Frames considered
+    NumFrames = ConversionTimeToFrames(Bxr, Duration)  
     # collect experiment information
-    minDigitalValue = bxr.attrs['MinDigitalValue']
-    maxDigitalValue = bxr.attrs['MaxDigitalValue']
-    minAnalogValue = bxr.attrs['MinAnalogValue']
-    maxAnalogValue = bxr.attrs['MaxAnalogValue']
-    dacFactor = (maxAnalogValue - minAnalogValue) / (maxDigitalValue - minDigitalValue)
-    offsetValue = minAnalogValue - dacFactor * minDigitalValue
-    samplingRate = bxr.attrs['SamplingRate']
-    FPForms = np.array(bxr[wellID+'/FpForms'])
-    FPformLength = bxr[wellID + '/FpForms'].attrs['Wavelength']
-    FPFrames, FPChannels = FP2df(bxr, wellID, startTime, Duration)
-    if startFrame <= FPFrames[0]:
-        first_index = 0
+    MinDigitalValue = Bxr.attrs['MinDigitalValue']
+    MaxDigitalValue = Bxr.attrs['MaxDigitalValue']
+    MinAnalogValue = Bxr.attrs['MinAnalogValue']
+    MaxAnalogValue = Bxr.attrs['MaxAnalogValue']
+    dacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
+    OffsetValue = MinAnalogValue - dacFactor * MinDigitalValue
+    SamplingRate = Bxr.attrs['SamplingRate']
+    FPForms = np.array(Bxr[WellID+'/FpForms'])
+    FPformLength = Bxr[WellID + '/FpForms'].attrs['Wavelength']
+    FPFrames, FPChannels = FP2Df(Bxr, WellID, StartTime, Duration)
+    if StartFrame <= FPFrames[0]:
+        FirstIndex = 0
     else:
-        f_i = np.where(FPFrames>startFrame)[0]
-        first_index = f_i[0]
-    if startFrame+NumFrames>=FPFrames[len(FPFrames)-1]:
-        second_index = len(FPFrames)-1
-        index = np.where(FPChannels[first_index:second_index+1]==chIdx)[0]
-    elif startFrame+NumFrames<=FPFrames[0]:
-        second_index = 0
-        index = []
+        Fi = np.where(FPFrames>StartFrame)[0]
+        FirstIndex = Fi[0]
+    if StartFrame+NumFrames>=FPFrames[len(FPFrames)-1]:
+        SecondIndex = len(FPFrames)-1
+        Index = np.where(FPChannels[FirstIndex:SecondIndex+1]==ChIdx)[0]
+    elif StartFrame+NumFrames<=FPFrames[0]:
+        SecondIndex = 0
+        Index = []
     else: 
-        s_i = np.where(FPFrames<=startFrame+NumFrames)[0]
-        second_index = s_i[len(s_i)-1]
-        index = np.where(FPChannels[first_index:second_index+1]==chIdx)[0]
-    if len(index)>0:    
+        Si = np.where(FPFrames<=StartFrame+NumFrames)[0]
+        SecondIndex = Si[len(Si)-1]
+        Index = np.where(FPChannels[FirstIndex:SecondIndex+1]==ChIdx)[0]
+    if len(Index)>0:    
         plt.figure()
-        x = np.arange(0, FPformLength, 1)/samplingRate
+        x = np.arange(0, FPformLength, 1)/SamplingRate
         colors = list(mcolors.XKCD_COLORS.keys())
         c = 0
-        for i in index:
-            y = offsetValue + dacFactor * FPForms[i:i + FPformLength]
+        for i in Index:
+            y = OffsetValue + dacFactor * FPForms[i:i + FPformLength]
             plt.plot(x, y, color=colors[c])
             c += 1
         
-        plt.title('FPforms = ' +str(len(index))+ ', channel = '+ str(chIdx+1)+', Time interval = ['+str(startTime)+', '+str(startTime+Duration)+']')
+        plt.title('FPforms = ' +str(len(Index))+ ', channel = '+ str(ChIdx+1)+', Time interval = ['+str(StartTime)+', '+str(StartTime+Duration)+']')
         plt.xlabel('(sec)')
         plt.ylabel('uV')
         plt.legend()
         plt.show()
     else: 
-        print('No FP for the channel '+ str(chIdx+1)+' in the time interval ['+str(startTime)+', '+str(startTime+Duration)+']')
+        print('No FP for the channel '+ str(ChIdx+1)+' in the time interval ['+str(StartTime)+', '+str(StartTime+Duration)+']')
 
-def SpikesDataset(brw, bxr, wellID, Downsampling_Frequency, StartTime=0, Duration=0.05, ch=-10):
-    """Generate a dataset of time windows centered on spike events from a selected channel.
+def SpikesDataset(brw, Bxr, WellID, DownsamplingFrequency, StartTime=0, Duration=0.05, ch=-10):
+    """Generate a Dataset of time windows centered on spike events from a selected channel.
 
     Args:
-        brw (BrwFile): file with raw data
-        bxr (BxrFile): file with analyzed data
-        wellID (str): well identifier for the study
-        Downsampling_Frequency (float): sampling frequency for downsampling
+        brw (BrwFile): file with raw Data
+        Bxr (BxrFile): file with analyzed Data
+        WellID (str): well identifier for the study
+        DownsamplingFrequency (float): sampling frequency for downsampling
         StartTime (float, optional): start time in seconds. Defaults to 0.
         Duration (float, optional): duration of analysis window in seconds. Defaults to 0.05.
         ch (int, optional): channel ID. If negative, selects channel with highest spike count. Defaults to -10.
 
     Returns:
-        np.ndarray: dataset array where each row is a 40-frame window (based on sampling frequency) 
-                    centered on a spike from the selected channel. Shape is [num_spikes, window_length].
+        np.ndarray: Dataset array where each row is a 40-frame window (based on sampling frequency) 
+                    centered on a spike from the selected channel. Shape is [NumSpikes, window_length].
     """           
     #reading
-    SamplingRate = float(brw.attrs['SamplingRate'])
-    SpikeFrames, SpikeChannels = Spikes2df(bxr, wellID, StartTime, Duration)
-    num_spikes = len(SpikeFrames)
+    
+    try:
+        SamplingRate = brw.attrs['SamplingRate']
+        NumChannels = np.array(brw[WellID + '/StoredChIdxs']).shape[0]
+    except KeyError:
+        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+        NumChannels = len(info['CorePlateData']['StoredPlateElIdxs']) 
+    
+    SpikeFrames, SpikeChannels = Spikes2Df(Bxr, WellID, StartTime, Duration)
+    NumSpikes = len(SpikeFrames)
 
-    Spikes_for_channels = np.zeros(num_spikes)
-    for i in range(num_spikes):
+    SpikesForChannels = np.zeros(NumSpikes)
+    for i in range(NumSpikes):
         ch = SpikeChannels[i]
-        Spikes_for_channels[ch] = Spikes_for_channels[ch]+1
-    max = np.max(Spikes_for_channels)
-    ch_max = np.where(Spikes_for_channels == max)[0]
-    if len(ch_max)==1:
-        ch_max = ch_max
+        SpikesForChannels[ch] = SpikesForChannels[ch]+1
+    max = np.max(SpikesForChannels)
+    ChMax = np.where(SpikesForChannels == max)[0]
+    if len(ChMax)==1:
+        ChMax = ChMax
     else:
-        ch_max = ch_max[0]
+        ChMax = ChMax[0]
 
     if ch < 0:
-        ch_max = ch_max
+        ChMax = ChMax
     else: 
-        ch_max = ch
+        ChMax = ch
 
     t=time.time()
-    DataFull_1m, frames_index_1m = brw_f.ReadingRawData(brw, wellID, SamplingRate, 0, 60)
+    DataFull_1m, FramesIndex1m = brw_f.ReadingRawData(brw, WellID, SamplingRate, 0, 60)
     print(time.time()-t)
-    DataFull_2m, frames_index_2m = brw_f.ReadingRawData(brw, wellID, SamplingRate, 60, 60)
+    DataFull_2m, FramesIndex2m = brw_f.ReadingRawData(brw, WellID, SamplingRate, 60, 60)
     print(time.time()-t)
-    DataFull_3m, frames_index_3m = brw_f.ReadingRawData(brw, wellID, SamplingRate, 120, Duration-120)
+    DataFull_3m, FramesIndex3m = brw_f.ReadingRawData(brw, WellID, SamplingRate, 120, Duration-120)
     print(time.time()-t)
     
 
-    f_1m = len(frames_index_1m)
-    f_2m = len(frames_index_2m)
-    f_3m = len(frames_index_3m)
-    NumFrames = f_1m + f_2m + f_3m
+    F1m = len(FramesIndex1m)
+    F2m = len(FramesIndex2m)
+    F3m = len(FramesIndex3m)
+    NumFrames = F1m + F2m + F3m
     # DataChannel = np.zeros((NumFrames,1))
     DataChannel = np.zeros(NumFrames)
-    DataChannel[0:f_1m] = DataFull_1m[:,ch_max]
-    DataChannel[f_1m:f_1m+f_2m] = DataFull_2m[:,ch_max]
-    DataChannel[f_2m+f_1m:NumFrames] = DataFull_3m[:,ch_max]
+    DataChannel[0:F1m] = DataFull_1m[:,ChMax]
+    DataChannel[F1m:F1m+F2m] = DataFull_2m[:,ChMax]
+    DataChannel[F2m+F1m:NumFrames] = DataFull_3m[:,ChMax]
 
-    idx_ch_max = np.where(SpikeChannels==ch_max)[0]
-    spikes_ch_max = SpikeFrames[idx_ch_max]
+    IdxChMax = np.where(SpikeChannels==ChMax)[0]
+    SpikesChMax = SpikeFrames[IdxChMax]
 
-    data = []
-    frames = []
+    Data = []
+    Frames = []
 
-    step = round(SamplingRate/Downsampling_Frequency)
+    step = round(SamplingRate/DownsamplingFrequency)
 
-    for i in range(len(spikes_ch_max)):
-        curr_spike_window = DataChannel[spikes_ch_max[i]-20*step:spikes_ch_max[i]+20*step+1]
-        idx_NB = np.where(curr_spike_window==-8000)[0]
+    for i in range(len(SpikesChMax)):
+        CurrSpikeWindow = DataChannel[SpikesChMax[i]-20*step:SpikesChMax[i]+20*step+1]
+        idx_NB = np.where(CurrSpikeWindow==-8000)[0]
         if len(idx_NB)==0:
-            data.append(curr_spike_window)
-            frames.append(spikes_ch_max[i])
+            Data.append(CurrSpikeWindow)
+            Frames.append(SpikesChMax[i])
 
-    l = len(data)
-    w = len(data[0])
+    l = len(Data)
+    w = len(Data[0])
     x = np.arange(0,w,step)
-    data = np.array(data)
-    # dataset = np.zeros((l,w,1))
-    dataset = np.zeros((l,w))
+    Data = np.array(Data)
+    # Dataset = np.zeros((l,w,1))
+    Dataset = np.zeros((l,w))
     for i in range(l):
-        dataset[i] = data[i]
+        Dataset[i] = Data[i]
     
-    curr_frame = frames[0]
-    indexes = []
-    indexes.append(0)
+    CurrFrame = Frames[0]
+    Indexes = []
+    Indexes.append(0)
     for i in range(l-1):
-        if frames[i+1]>=curr_frame+40*step:
-            indexes.append(i+1)
-            curr_frame = frames[i+1]
+        if Frames[i+1]>=CurrFrame+40*step:
+            Indexes.append(i+1)
+            CurrFrame = Frames[i+1]
 
-    dataset = dataset[indexes]
-    frames = np.array(frames)
-    frames = frames[indexes]
-    spikes_pos = []
-    spikes_neg = []
-    for i in range(len(frames)):
-        if DataChannel[frames[i]]>0:
-            spikes_pos.append(i)
+    Dataset = Dataset[Indexes]
+    Frames = np.array(Frames)
+    Frames = Frames[Indexes]
+    SpikesPos = []
+    SpikesNeg = []
+    for i in range(len(Frames)):
+        if DataChannel[Frames[i]]>0:
+            SpikesPos.append(i)
         else:
-            spikes_neg.append(i)
+            SpikesNeg.append(i)
 
-    dataset = np.reshape(dataset, (dataset.shape[0], dataset.shape[1]))
-    dataset = dataset[:, x]
+    Dataset = np.reshape(Dataset, (Dataset.shape[0], Dataset.shape[1]))
+    Dataset = Dataset[:, x]
 
-    return dataset
+    return Dataset
 
 
 
