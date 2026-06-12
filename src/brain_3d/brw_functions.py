@@ -1,8 +1,6 @@
 """
 Codes with functions related to BRW file
 """
-import json
-
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -126,7 +124,7 @@ def ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration =
     Args:
         brw (BrwFile): file brw opened from its path.
         wellID (str): identifier of the selected well.
-        Downsampling_Frequency (float): chosen sampling frequency.
+        DownsamplingFrequency (float): chosen sampling frequency.
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
     
@@ -263,13 +261,15 @@ def PlotRawData(brw, wellID, title, DownsamplingFrequency, row, col, StartTime=0
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
     """
-    StartFrame = int(SamplingRate * StartTime)
-    EndFrame = int(SamplingRate *(StartTime+Duration))
     try:
         SamplingRate = brw.attrs['SamplingRate']
     except KeyError:
         info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+   
+    StartFrame = int(SamplingRate * StartTime)
+    EndFrame = int(SamplingRate *(StartTime+Duration))
+   
     y, Frames2Save = ReadingSingleChannel(brw, wellID, DownsamplingFrequency, row, col, StartTime, Duration)
     x = Frames2Save/SamplingRate
     y = np.transpose(y)
@@ -282,7 +282,7 @@ def PlotRawData(brw, wellID, title, DownsamplingFrequency, row, col, StartTime=0
     plt.savefig(title+".png")
     plt.show()
 
-def SingleChannelFramesWithPeaks(brw, wellID, Downsampling_Frequency, row, col, StartTime=0, Duration = 0.05, threshold=0):
+def SingleChannelFramesWithPeaks(brw, wellID, DownsamplingFrequency, row, col, StartTime=0, Duration = 0.05, Threshold=0):
     """
     This function returns the frames for the channel define by row and colum
     where we have a peak larger than a threshold defined by the user
@@ -290,23 +290,23 @@ def SingleChannelFramesWithPeaks(brw, wellID, Downsampling_Frequency, row, col, 
     Args:
         brw (BrwFile): file brw opened from its path.
         wellID (str): identifier of the selected well.
-        Downsampling_Frequency (float): chosen sampling frequency.
+        DownsamplingFrequency (float): chosen sampling frequency.
         row (int): number from 0 to 63 that selects the row of the channel in the well.
         col (int): number from 0 to 63 that selects the column of the channel in the well.
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
-        threshold (float): the threshold on the level of activity. Defaults to 0.
+        Threshold (float): the threshold on the level of activity. Defaults to 0.
     
     Returns:
         FramesWithPeaks (np.ndarray): array that contains the frames of the peaks.
     """
-    y, Frames2Save = ReadingSingleChannel(brw, wellID, Downsampling_Frequency, row, col, StartTime, Duration)
+    y, Frames2Save = ReadingSingleChannel(brw, wellID, DownsamplingFrequency, row, col, StartTime, Duration)
     y = np.transpose(y)
-    peaks = scipy.signal.find_peaks(y, threshold=threshold)
+    peaks = scipy.signal.find_peaks(y, threshold=Threshold)
     FramesWithPeaks = Frames2Save[peaks[0]]
     return FramesWithPeaks
 
-def FramesWithPeaks(brw, wellID, Downsampling_Frequency, StartTime = 0, Duration = 0.05, Percentage = 0, threshold=0):
+def FramesWithPeaks(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05, Percentage = 0, Threshold=0):
     """
     This function returns the frames where we have peaks
     larger or lower than a threshold defined by the user
@@ -314,24 +314,24 @@ def FramesWithPeaks(brw, wellID, Downsampling_Frequency, StartTime = 0, Duration
     Args:
         brw (BrwFile): file brw opened from its path.
         wellID (str): identifier of the selected well.
-        Downsampling_Frequency (float): chosen sampling frequency.
-        StartTime (c, optional): starting time in seconds. Defaults to 0.
+        DownsamplingFrequency (float): chosen sampling frequency.
+        StartTime (float, optional): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
         Percentage (int): Percentage of the channel with peaks. Defaults to 0.
-        threshold (float): the threshold on the level of activity. Defaults to 0.
+        Threshold (float): the threshold on the level of activity. Defaults to 0.
     
     Returns:
         np.ndarray: (array): array that contains the frames of the peaks for all the channels.
         FramesUnderPerc (list): it contains the frames with a number of peaks smaller than Percentage*NumChannels.
         FramesOverPerc (list): it contains the frames with a number of peaks larger than Percentage*NumChannels.
     """
-    data, Frames2Save = ReadingRawData(brw, wellID, Downsampling_Frequency, StartTime, Duration)
-    NumChannels = data.shape[1]
+    Data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
+    NumChannels = Data.shape[1]
     NumFrames2Save = len(Frames2Save)
     MatrixPeaks = np.zeros((NumFrames2Save, NumChannels))
 
     for ch in range(NumChannels):
-        IndexPeaks = scipy.signal.find_peaks(data[:,ch], threshold=threshold)
+        IndexPeaks = scipy.signal.find_peaks(Data[:,ch], threshold=Threshold)
         MatrixPeaks[IndexPeaks[0], ch] = 1
 
     NumPeaks = np.sum(MatrixPeaks, axis = 1)
@@ -346,7 +346,7 @@ def FramesWithPeaks(brw, wellID, Downsampling_Frequency, StartTime = 0, Duration
     
     return  MatrixPeaks, FramesUnderPerc, FramesOverPerc
 
-def BRW2df(brw, wellID, Downsampling_Frequency, StartTime = 0, Duration = 0.05): 
+def BRW2df(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05): 
 
     """
     Selected a BrwFile and a well, this function creates 2 dataframe:
@@ -356,7 +356,7 @@ def BRW2df(brw, wellID, Downsampling_Frequency, StartTime = 0, Duration = 0.05):
     Args:
         brw (BrwFile): file brw opened from its path.
         wellID (str): identifier of the selected well.
-        Downsampling_Frequency (float): chosen sampling frequency.
+        DownsamplingFrequency (float): chosen sampling frequency.
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
     
@@ -365,7 +365,7 @@ def BRW2df(brw, wellID, Downsampling_Frequency, StartTime = 0, Duration = 0.05):
     """
     Dim1 = int(np.sqrt(np.array(brw[wellID + '/StoredChIdxs']).shape[0]))
     Dim2 = Dim1
-    data, Frames2Save = ReadingRawData(brw, wellID, Downsampling_Frequency, StartTime, Duration)
+    data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
 
     ListaAL = []
     for it in np.arange(data.shape[0]):
@@ -391,7 +391,7 @@ def SpikesActivityLevel(brw, bxr, wellID, DownsamplingFrequency, StartTime = 0, 
         brw (BrwFile): BRW file.
         bxr (BXRFile): BRW file.
         wellID (str): identifier of the selected well.
-        Downsampling_Frequency (float): chosen sampling frequency.
+        DownsamplingFrequency (float): chosen sampling frequency.
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
     
@@ -493,10 +493,10 @@ def CommonAverageReference(data):
     The median and then the mean are removed form the data
     
     Args:
-        data (float): signals to be tranformed.
+        data (float): signals to be transformed.
     
     Returns:
-        float: the trandferme signal.
+        float: the transformed signal.
     """
     median = np.median(data, 1)
     data = (data.T - median).T

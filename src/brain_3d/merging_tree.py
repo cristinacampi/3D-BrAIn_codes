@@ -87,7 +87,7 @@ def MergingTree(G, Partition):
             - GTree (nx.DiGraph): NetworkX representation of tree
             - Pos (dict): node positions for visualization
     """
-    # Initialize clusters from partition
+    # Initialize Clusters from partition
     NCommunity = max(Partition.membership) + 1
     Clusters = []
     Nodi = []
@@ -100,7 +100,7 @@ def MergingTree(G, Partition):
         Nodi.append(Node(Data=str(i)))
         Labels.append(str(i))
     
-    # Iteratively merge clusters
+    # Iteratively merge Clusters
     while len(Clusters) > 2:
         NCommunity = len(Clusters)
         Subgraphs = []
@@ -154,14 +154,14 @@ def MergingTree(G, Partition):
             LabelsNew = []
             
             # Add merged cluster
-            Classes.append(list(sorted(set(clusters[i1]) | set(clusters[i2]))))
+            Classes.append(list(sorted(set(Clusters[i1]) | set(Clusters[i2]))))
             NodiNew.append(Node(left=Nodi[i1], Right=Nodi[i2], 
                                 Data=Labels[i1] + Labels[i2]))
             LabelsNew.append(Labels[i1] + Labels[i2])
             
-            # Add remaining clusters
+            # Add remaining Clusters
             for i in sorted(idxs):
-                Classes.append(clusters[i])
+                Classes.append(Clusters[i])
                 NodiNew.append(Nodi[i])
                 LabelsNew.append(Labels[i])
             
@@ -214,14 +214,14 @@ def VisualizeTree(GTree, Pos, Title="Merging Tree", Filename=None):
 def ExtractClusters(Root, Depth=None):
     """Extract cluster assignments from merging tree.
     
-    Traverses the tree and extracts clusters at a specified depth or leaf level.
+    Traverses the tree and extracts Clusters at a specified depth or leaf level.
     
     Args:
         Root (Node): root node of merging tree
         Depth (int, optional): depth level to cut tree. If None, uses leaves. Defaults to None.
     
     Returns:
-        list: list of clusters (each cluster is a list of node IDs)
+        list: list of Clusters (each cluster is a list of node IDs)
     """
     def GetLeafNodes(Node, CurrentDepth=0, TargetDepth=None):
         """Recursively extract nodes at target depth."""

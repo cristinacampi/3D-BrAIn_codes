@@ -2,9 +2,7 @@
 
 import numpy as np
 import random
-import operator
 import math
-import matplotlib.pyplot as plt
 
 
 def InitializeMembershipMatrix(NPoints, NClasses):
@@ -14,7 +12,7 @@ def InitializeMembershipMatrix(NPoints, NClasses):
     represents membership to a cluster. Values are normalized to sum to 1.
     
     Args:
-        NPoints (int): number of Data points
+        NPoints (int): number of Data pointsCenters
         NClasses (int): number of clusters
     
     Returns:
@@ -40,7 +38,7 @@ def InitializeMembershipMatrix(NPoints, NClasses):
 
 
 def CalculateClusterCenters(Data, MembershipMat, NPoints, NClasses, FuzzyParameter):
-    """Calculate cluster centers based on membership matrix.
+    """Calculate cluster Centers based on membership matrix.
     
     Args:
         Data (array): Dataset of shape [NPoints, NFeatures]
@@ -50,7 +48,7 @@ def CalculateClusterCenters(Data, MembershipMat, NPoints, NClasses, FuzzyParamet
         FuzzyParameter (float): fuzziness parameter (m > 1, typically 2)
     
     Returns:
-        list: cluster centers of shape [NClasses, NFeatures]
+        list: cluster Centers of shape [NClasses, NFeatures]
     """
     ClusterMemVal = list(zip(*MembershipMat))
     ClusterCenters = []
@@ -75,7 +73,7 @@ def CalculateClusterCenters(Data, MembershipMat, NPoints, NClasses, FuzzyParamet
 
 
 def UpdateMembershipValue(Data, MembershipMat, NPoints, NClasses, FuzzyParameter, ClusterCenters, metric):
-    """Update membership matrix based on distances to cluster centers.
+    """Update membership matrix based on distances to cluster Metric.
     
     Args:
         Data (array): Dataset of shape [NPoints, NFeatures]
@@ -84,7 +82,7 @@ def UpdateMembershipValue(Data, MembershipMat, NPoints, NClasses, FuzzyParameter
         NClasses (int): number of clusters
         FuzzyParameter (float): fuzziness parameter
         ClusterCenters (list): cluster centers
-        metric (function): distance metric function
+        Metric (function): distance metric function
     
     Returns:
         list: updated membership matrix
@@ -98,7 +96,7 @@ def UpdateMembershipValue(Data, MembershipMat, NPoints, NClasses, FuzzyParameter
         # Calculate distances to all cluster centers
         for k in range(NClasses):
             try:
-                d = metric(x, ClusterCenters[k])
+                d = Metric(x, ClusterCenters[k])
             except Exception:
                 d = 0
             distances.append(d)
@@ -140,17 +138,17 @@ def GetClusters(MembershipMat, NPoints):
     return ClusterLabels
 
 
-def FuzzyCMeansClustering(Data, NPoints, NClasses, centers, FuzzyParameter, MaxIter, metric):
+def FuzzyCMeansClustering(Data, NPoints, NClasses, Centers, FuzzyParameter, MaxIter, Metric):
     """Perform Fuzzy C-Means clustering algorithm.
     
     Args:
         Data (array): Dataset of shape [NPoints, NFeatures]
         NPoints (int): number of Data points
         NClasses (int): number of clusters
-        centers (list): initial cluster centers
+        Centers (list): initial cluster centers
         FuzzyParameter (float): fuzziness parameter (m > 1)
         MaxIter (int): maximum number of iterations
-        metric (function): distance metric function
+        Metric (function): distance metric function
     
     Returns:
         tuple: (ClusterLabels, ClusterCenters, IterationHistory, MembershipMatrix)
@@ -163,7 +161,7 @@ def FuzzyCMeansClustering(Data, NPoints, NClasses, centers, FuzzyParameter, MaxI
     MembershipMat = InitializeMembershipMatrix(NPoints, NClasses)
     Curr = 0
     Acc = []
-    CentTemp = centers
+    CentTemp = Centers
     
     while Curr < MaxIter:
         if Curr == 0:
@@ -173,7 +171,7 @@ def FuzzyCMeansClustering(Data, NPoints, NClasses, centers, FuzzyParameter, MaxI
         
         # Update memberships and get labels
         MembershipMat = UpdateMembershipValue(Data, MembershipMat, NPoints, NClasses, 
-                                             FuzzyParameter, ClusterCenters, metric)
+                                             FuzzyParameter, ClusterCenters, Metric)
         ClusterLabels = GetClusters(MembershipMat, NPoints)
         Acc.append(ClusterLabels)
         Curr += 1
@@ -181,7 +179,7 @@ def FuzzyCMeansClustering(Data, NPoints, NClasses, centers, FuzzyParameter, MaxI
     return ClusterLabels, ClusterCenters, Acc, MembershipMat
 
 
-def FCM(Data, NClasses, centers, FuzzyParameter, MaxIter, metric):
+def FCM(Data, NClasses, Centers, FuzzyParameter, MaxIter, Metric):
     """Fuzzy C-Means clustering wrapper function.
     
     Performs fuzzy clustering and returns cluster assignments and centers.
@@ -204,7 +202,7 @@ def FCM(Data, NClasses, centers, FuzzyParameter, MaxIter, metric):
     
     # Run FCM algorithm
     Labels, Centers, Acc, MembershipMat = FuzzyCMeansClustering(
-        Data, NPoints, NClasses, centers, FuzzyParameter, MaxIter, metric
+        Data, NPoints, NClasses, Centers, FuzzyParameter, MaxIter, Metric
     )
     
     # Convert labels to cluster index lists

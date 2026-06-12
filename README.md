@@ -1,10 +1,9 @@
-# 3D-BrAIn: 3D Brain Activity In vitro Network
+# 3D-BrAIn
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cristinacampi.github.io/3D-BrAIn_codes/)
 
-Advanced spike sorting, clustering, and deep learning-based signal synthesis for microelectrode array (MEA) recordings of neural networks.
 
 ## Features
 

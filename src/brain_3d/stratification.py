@@ -4,7 +4,7 @@ import warnings
 np.warnings = warnings
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import minkowski
-from scipy.cluster.hierarchy import dendrogram, linkage, fclusterdata
+from scipy.cluster.hierarchy import dendrogram, linkage, fclusterData
 from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from sklearn.decomposition import PCA, FastICA, KernelPCA
@@ -14,7 +14,6 @@ from pyclustering.utils.metric import type_metric, distance_metric
 import pandas as pd
 import math
 import FCM
-from scipy.signal import find_peaks, butter, filtfilt
 import igraph as ig
 import leidenalg as la
 from kneed import KneeLocator
@@ -25,18 +24,18 @@ from tslearn.preprocessing import TimeSeriesScalerMeanVariance
 
 '''DISTANCES'''
 
-def d_m(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def d_m(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Minkowski distance.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        w_max (int): Unused. Defaults to 1.
-        p_minkowski (int): parameter. Defaults to 2 (euclidean distance).
+        wMax (int): Unused. Defaults to 1.
+        pMinkowski  (int): parameter. Defaults to 2 (euclidean distance).
         g (int): Unused. Defaults to 1.
-        epsilon_EDR (float): Unused. Defaults to 0.001.
-        epsilon_LCSS (float): Unused. Defaults to 0.001.
+        epsilonEDR (float): Unused. Defaults to 0.001.
+        epsilonLCSS (float): Unused. Defaults to 0.001.
         SamplingRate (float): Unused. Defaults to 1000.
     
     Returns:
@@ -47,7 +46,7 @@ def d_m(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LC
     if l1 != l2:
         print('vectors with not equal length')
     else:
-        d = minkowski(a, b, p=p_minkowski)
+        d = minkowski(a, b, p=pMinkowski )
     
         return d
     
@@ -66,10 +65,10 @@ def MatrixC(M):
     C[:][:] = np.inf
     C[0][0] = 0
     for i in range(l1):
-        i_C = i+1
+        iC = i+1
         for j in range(l1):
-            j_C = j+1
-            C[i_C][j_C] = M[i][j] + min(C[i_C-1][j_C-1], C[i_C-1][j_C], C[i_C][j_C-1])
+            jC = j+1
+            C[iC][jC] = M[i][j] + min(C[iC-1][jC-1], C[iC-1][jC], C[iC][jC-1])
     return C
 
 def Warping(a, b, M):
@@ -146,18 +145,18 @@ def MatrixM(a, b):
     
     return M
 
-def d_dtw(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def d_dtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Dynamic Time Warping distance.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        p_minkowski (int): Unused. Defaults to 2.
-        w_max (int): Unused. Defaults to 1.
+        pMinkowski  (int): Unused. Defaults to 2.
+        wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
-        epsilon_EDR (float): Unused. Defaults to 0.001.
-        epsilon_LCSS (float): Unused. Defaults to 0.001.
+        epsilonEDR (float): Unused. Defaults to 0.001.
+        epsilonLCSS (float): Unused. Defaults to 0.001.
         SamplingRate (float): Unused. Defaults to 1000.
     
     Returns:
@@ -193,18 +192,18 @@ def a1_b1_ddtw(a, b):
         b1[i-1]=((b[i]-b[i-1])+((b[i+1]-b[i-1])/2))/2
     return a1, b1
 
-def d_ddtw(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def d_ddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Derivative Dynamic Time Warping distance.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        p_minkowski (int): Unused. Defaults to 2.
-        w_max (int): Unused. Defaults to 1.
+        pMinkowski  (int): Unused. Defaults to 2.
+        wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
-        epsilon_EDR (float): Unused. Defaults to 0.001.
-        epsilon_LCSS (float): Unused. Defaults to 0.001.
+        epsilonEDR (float): Unused. Defaults to 0.001.
+        epsilonLCSS (float): Unused. Defaults to 0.001.
         SamplingRate (float): Unused. Defaults to 1000.
     
     Returns:
@@ -219,18 +218,18 @@ def d_ddtw(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon
         d = d_dtw(a1,b1)
         return d
     
-def d_wdtw(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def d_wdtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Weighted Dynamic Time Warping distance.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        p_minkowski (int): Unused. Defaults to 2.
-        w_max (int): upper bound of the weights. Defaults to 1.
+        pMinkowski  (int): Unused. Defaults to 2.
+        wMax (int): upper bound of the weights. Defaults to 1.
         g (int): exponential parameter. Defaults to 1.
-        epsilon_EDR (float): Unused. Defaults to 0.001.
-        epsilon_LCSS (float): Unused. Defaults to 0.001.
+        epsilonEDR (float): Unused. Defaults to 0.001.
+        epsilonLCSS (float): Unused. Defaults to 0.001.
         SamplingRate (float): Unused. Defaults to 1000.
     
     Returns:
@@ -241,21 +240,21 @@ def d_wdtw(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon
     if l1 != l2:
         print('vectors with not equal length')
     else:
-        #w_max = 1 #da mettere a scelta dell'utente
+        #wMax = 1 #da mettere a scelta dell'utente
         #g = 1 #da mettere a scelta dell'utente
         M = MatrixM(a, b)
-        M = MatrixMw(M, w_max, g)
+        M = MatrixMw(M, wMax, g)
         C = MatrixC(M)        
         d = C[l1][l1]
         return math.pow(d,0.5)
     
-def MatrixMw(M, w_max, g):
+def MatrixMw(M, wMax, g):
     """
     Matrix of the punctual distances between the entries of two vectors but with weights based on the indexes of the entries.
     
     Args:
         M (np.ndarray): matrix of the ed distances between the entries of two vectors.
-        w_max (float): parameter for the weigths.
+        wMax (float): parameter for the weigths.
         g (float): parameter for the weigths.
     
     Returns:
@@ -265,48 +264,48 @@ def MatrixMw(M, w_max, g):
 
     for i in range(l1):
             for j in range(l1):
-                M[i,j] = (w_max/(1+math.exp(-g*(abs(i-j)-l1/2))))*M[i,j]
+                M[i,j] = (wMax/(1+math.exp(-g*(abs(i-j)-l1/2))))*M[i,j]
     return M
     
-def d_wddtw(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate = 1000):
+def d_wddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate = 1000):
     """
     Derivative Weigthed Dynamic Time Warping distance.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        p_minkowski (int): Unused. Defaults to 2.
-        w_max (int): upper bound of the weights. Defaults to 1.
+        pMinkowski  (int): Unused. Defaults to 2.
+        wMax (int): upper bound of the weights. Defaults to 1.
         g (int): exponential parameter. Defaults to 1.
-        epsilon_EDR (float): Unused. Defaults to 0.001.
-        epsilon_LCSS (float): Unused. Defaults to 0.001.
+        epsilonEDR (float): Unused. Defaults to 0.001.
+        epsilonLCSS (float): Unused. Defaults to 0.001.
         SamplingRate (float): Unused. Defaults to 1000.
     
     Returns:
         d (float): wdtw distance between a and b.
     """
     a1, b1 = a1_b1_ddtw(a, b)
-    d = d_wdtw(a1, b1, w_max = w_max, g = g)
+    d = d_wdtw(a1, b1, wMax = wMax, g = g)
     return d
 
-def d_lcss(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def d_lcss(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Longest Common Subsequence distance.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        p_minkowski (int): Unused. Defaults to 2.
-        w_max (int): Unused. Defaults to 1.
+        pMinkowski  (int): Unused. Defaults to 2.
+        wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
-        epsilon_EDR (float): Unused. Defaults to 0.001.
-        epsilon_LCSS (float): Threshold. Defaults to 0.001.
+        epsilonEDR (float): Unused. Defaults to 0.001.
+        epsilonLCSS (float): Threshold. Defaults to 0.001.
         SamplingRate (float): Unused. Defaults to 1000.
     
     Returns:
         d (float): lcss distance between a and b.
     """
-    epsilon_LCSS_abs = epsilon_LCSS*np.linalg.norm(a)
+    epsilonLCSS_abs = epsilonLCSS*np.linalg.norm(a)
 
     l1 = len(a)
     l2 = len(b)
@@ -318,7 +317,7 @@ def d_lcss(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon
             i_L = i+1
             for j in range(l1):
                 j_L = j+1
-                if abs(a[i]-b[j])<epsilon_LCSS_abs:
+                if abs(a[i]-b[j])<epsilonLCSS_abs:
                     L[i_L][j_L] = L[i_L-1][j_L-1]+1
                 else:
                     L[i_L][j_L] = max(L[i_L-1][j_L], L[i_L][j_L-1])
@@ -326,24 +325,24 @@ def d_lcss(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon
         d = 1 - LCSS/l1
         return d
 
-def d_edr(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def d_edr(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Edit distance on Real Sequences.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        p_minkowski (int): Unused. Defaults to 2.
-        w_max (int): Unused. Defaults to 1.
+        pMinkowski  (int): Unused. Defaults to 2.
+        wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
-        epsilon_EDR (float): Threshold. Defaults to 0.001.
-        epsilon_LCSS (float): Unused. Defaults to 0.001.
+        epsilonEDR (float): Threshold. Defaults to 0.001.
+        epsilonLCSS (float): Unused. Defaults to 0.001.
         SamplingRate (float): Unused. Defaults to 1000.
     
     Returns:
         d (float): edr distance between a and b.
     """
-    epsilon_EDR_abs = epsilon_EDR*np.linalg.norm(a)
+    epsilonEDR_abs = epsilonEDR*np.linalg.norm(a)
 
     l1 = len(a)
     l2 = len(b)
@@ -356,7 +355,7 @@ def d_edr(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_
             i_E = i+1
             for j in range(l1):
                 j_E = j+1
-                if abs(a[i]-b[j])<epsilon_EDR_abs:
+                if abs(a[i]-b[j])<epsilonEDR_abs:
                     c = 0
                 else:
                     c = 1
@@ -367,18 +366,18 @@ def d_edr(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_
         d = E[l1][l1]
         return d
 
-def d_rho_2 (a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def d_rho_2 (a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Distance based on the Pearson's correlation coefficient.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        p_minkowski (int): Unused. Defaults to 2.
-        w_max (int): Unused. Defaults to 1.
+        pMinkowski  (int): Unused. Defaults to 2.
+        wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
-        epsilon_EDR (float): Unused. Defaults to 0.001.
-        epsilon_LCSS (float): Unused. Defaults to 0.001.
+        epsilonEDR (float): Unused. Defaults to 0.001.
+        epsilonLCSS (float): Unused. Defaults to 0.001.
         SamplingRate (float): Unused. Defaults to 1000.
     
     Returns:
@@ -394,18 +393,18 @@ def d_rho_2 (a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsil
         d = 2*(1-rho)
     return d
 
-def d_sts(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def d_sts(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Short Time Series distance.
     
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        p_minkowski (int): Unused. Defaults to 2.
-        w_max (int): Unused. Defaults to 1.
+        pMinkowski  (int): Unused. Defaults to 2.
+        wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
-        epsilon_EDR (float): Unused. Defaults to 0.001.
-        epsilon_LCSS (float): Unused. Defaults to 0.001.
+        epsilonEDR (float): Unused. Defaults to 0.001.
+        epsilonLCSS (float): Unused. Defaults to 0.001.
         SamplingRate (float): Sampling Frequency. Defaults to 1000.
     
     Returns:
@@ -421,32 +420,32 @@ def d_sts(a, b, p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_
         d = math.sqrt(np.sum(aux))
         return d
     
-def AdjacencyMatrix(data, distance_str = 'm', p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def AdjacencyMatrix(Data, DistanceStr = 'm', pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
-    Adjacency matrix for Leiden algorithm based on metric selected.
+    Adjacency matrix for Leiden Algorithm based on metric selected.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        distance_str (str): metric used to compute distances. Defaults to 'm'.
-        p_minkowski (int): Minkowski parameter. Defaults to 2.
-        w_max (int): WDTW and WDDTW parameter. Defaults to 1.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        DistanceStr (str): metric used to compute distances. Defaults to 'm'.
+        pMinkowski  (int): Minkowski parameter. Defaults to 2.
+        wMax (int): WDTW and WDDTW parameter. Defaults to 1.
         g (int): WDTW and WDDTW parameter. Defaults to 1.
-        epsilon_EDR (float): EDR threshold. Defaults to 0.001.
-        epsilon_LCSS (float): LCSS threshold. Defaults to 0.001.
+        epsilonEDR (float): EDR threshold. Defaults to 0.001.
+        epsilonLCSS (float): LCSS threshold. Defaults to 0.001.
         SamplingRate (int): STS parameter. Defaults to 1000.
     
     Returns:
-        adjacency (np.ndarray): 2D matrix adjacency matrix for Leiden graph-based algorithm.
+        adjacency (np.ndarray): 2D matrix adjacency matrix for Leiden graph-based Algorithm.
     """
 
-    distance = 'd_'+distance_str
+    distance = 'd_'+DistanceStr
     distance = globals()[distance]
-    distance.__defaults__ = (p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate)
-    dim = data.shape[0]
+    distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+    dim = Data.shape[0]
     matrix = np.zeros((dim,dim))
     for i in range(dim):
         for j in np.array(range(i+1,dim)):
-            matrix[i][j]=distance(data[i], data[j])
+            matrix[i][j]=distance(Data[i], Data[j])
     matrix = matrix + matrix.T
     M = np.max(matrix)
     matrix_2 = matrix/M
@@ -455,483 +454,483 @@ def AdjacencyMatrix(data, distance_str = 'm', p_minkowski = 2, w_max = 1, g = 1,
 
     return adjacency
 
-'''NORMALIZATION'''
-def NormalizationMinMaxSingle(data):
+'''Normalization'''
+def NormalizationMinMaxSingle(Data):
     """
-    Normalization of a dataset following the formula data[i] = (data[i]-m)/(M-m) where m and M are respectively the minimum.
+    Normalization of a Dataset following the formula Data[i] = (Data[i]-m)/(M-m) where m and M are respectively the minimum.
     
     Args:
-        data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the dataset.
+        Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset.
     
     Returns:
-        data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the dataset normalized.
+        Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset normalized.
     """
-    for i in range(len(data)):
-        m = min(data[i,:])
-        M = max(data[i,:])
+    for i in range(len(Data)):
+        m = min(Data[i,:])
+        M = max(Data[i,:])
         if m == M :
-            data[i,:] = data[i,:]-data[i,:]
+            Data[i,:] = Data[i,:]-Data[i,:]
         else:
-            data[i,:] = (data[i,:]-m)/(M-m) 
+            Data[i,:] = (Data[i,:]-m)/(M-m) 
 
-    return data 
+    return Data 
 
-def NormalizationMinMaxGlobal(data):
+def NormalizationMinMaxGlobal(Data):
     """
-    Normalization of a dataset following the formula data[i] = (data[i]-m)/(M-m) where m and M are respectively the global minimum.
+    Normalization of a Dataset following the formula Data[i] = (Data[i]-m)/(M-m) where m and M are respectively the global minimum.
     
     Args:
-        data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the dataset.
+        Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset.
     
     Returns:
-        data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the dataset normalized.
+        Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset normalized.
     """
    
-    size = len(data)
+    size = len(Data)
     m = np.zeros(size)
     M = np.zeros(size)
     for i in range(size):
-        m[i] = min(data[i,:])
-        M[i] = max(data[i,:])
+        m[i] = min(Data[i,:])
+        M[i] = max(Data[i,:])
     minimum = min(m)
     maximum = max(M)
     for i in range(size):
-        data[i,:] = (data[i,:]-minimum)/(maximum-minimum)
+        Data[i,:] = (Data[i,:]-minimum)/(maximum-minimum)
 
-    return data
+    return Data
 
-def Whitening(data):
+def Whitening(Data):
     """
-    Normalization of a dataset following the formula data[i] = (data[i]-mu)/sigma where mu and sigma are respectively the mean.
+    Normalization of a Dataset following the formula Data[i] = (Data[i]-mu)/sigma where mu and sigma are respectively the mean.
     
     Args:
-        data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the dataset.
+        Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset.
     
     Returns:
-        data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the dataset normalized.
+        Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset normalized.
     """
-    for i in  range(len(data)):
-        m = min(data[i,:])
-        M = max(data[i,:])
-        mu = np.mean(data[i,:])
-        sigma = np.std(data[i,:])
+    for i in  range(len(Data)):
+        m = min(Data[i,:])
+        M = max(Data[i,:])
+        mu = np.mean(Data[i,:])
+        sigma = np.std(Data[i,:])
         if m == M:
-            data[i,:] = data[i,:]-data[i,:]
+            Data[i,:] = Data[i,:]-Data[i,:]
         else:
-            data[i,:] = (data[i,:]-mu)/sigma
+            Data[i,:] = (Data[i,:]-mu)/sigma
 
-    return data
+    return Data
 
-def WhiteningGlobal(data):
+def WhiteningGlobal(Data):
     """
-    Normalization of a dataset following the formula data[i] = (data[i]-mu)/sigma where mu and sigma are respectively.
+    Normalization of a Dataset following the formula Data[i] = (Data[i]-mu)/sigma where mu and sigma are respectively.
     
     Args:
-        data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the dataset.
+        Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset.
     
     Returns:
-        data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the dataset normalized.
+        Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset normalized.
     """
-    size = len(data)
-    mu = np.mean(data)
-    sigma = np.std(data)
+    size = len(Data)
+    mu = np.mean(Data)
+    sigma = np.std(Data)
     for i in range(size):
-        data[i,:] = (data[i,:]-mu)/sigma 
+        Data[i,:] = (Data[i,:]-mu)/sigma 
 
-    return data   
+    return Data   
 
 
-'''ALGORITHMS'''
+'''AlgoRITHMS'''
 
-def Dendrogram(data, distance, method_HC ='complete', threshold_dendrogram=0.7):
+def Dendrogram(Data, distance, methodHC ='complete', ThresholdDendrogram=0.7):
     """
-    Given a dataset, a metric, a method and a threshold, the function returns the dendrogram plot of the chosen hierarchical.
+    Given a Dataset, a metric, a method and a threshold, the function returns the dendrogram plot of the chosen hierarchical.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
+        Data (np.ndarray): 2D matrix representing the Dataset.
         distance (str): metric used to compute distances.
-        method_HC (str): linkage method.
-        threshold_dendrogram (float): threshold between 0 and 1 that multiplied with the height of the dendrogram represent the height at which we want to cut it.
+        methodHC (str): linkage method.
+        ThresholdDendrogram (float): threshold between 0 and 1 that multiplied with the height of the dendrogram represent the height at which we want to cut it.
     
     Returns:
         max_d (float): height of the cut of the dendrogram.
     """
 
     try:
-        linkage_data = linkage(data, method = method_HC, metric = distance)
-        n = len(data)
-        aggregation_levels = linkage_data[:,2]
-        max_d = threshold_dendrogram * aggregation_levels[n-2]
+        LinkageData = linkage(Data, method = methodHC, metric = distance)
+        n = len(Data)
+        AggregationLevels = LinkageData[:,2]
+        max_d = ThresholdDendrogram * AggregationLevels[n-2]
     except:
-        max_d = threshold_dendrogram*len(data)
+        max_d = ThresholdDendrogram*len(Data)
     '''
     plt.figure()
     plt.title("Dendrogram")
-    dendrogram(linkage_data)
+    dendrogram(LinkageData)
     plt.axhline(y = max_d, c='k')
     plt.show()
     #plt.savefig("Dendrogram.png")
     # '''
     return max_d
 
-def HierarchicalClustering(data, method_HC, distance, threshold_dendrogram, max_classes, criterion, distance_str, p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate):
+def HierarchicalClustering(Data, methodHC, distance, ThresholdDendrogram, MaxClasses, criterion, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate):
     """
-    Given a dataset, a distance, a method and a threshold, the function returns the clusters built by the chosen hierarchical.
+    Given a Dataset, a distance, a method and a threshold, the function returns the Clusters built by the chosen hierarchical.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        method_HC (str): linkage method.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        methodHC (str): linkage method.
         distance (function): metric used to compute distances.
-        threshold_dendrogram (float): height at which we cut the dendrogram to form clusters.
-        max_classes (int): maximum number of classes to obtain from the clustering.
+        ThresholdDendrogram (float): height at which we cut the dendrogram to form Clusters.
+        MaxClasses (int): maximum number of classes to obtain from the clustering.
         criterion (str): clustering criterion.
-        distance_str (str): metric used to compute distances.
-        p_minkowski (int): Defaults to 2.
-        w_max (int): upper bound of the weights. Defaults to 1.
+        DistanceStr (str): metric used to compute distances.
+        pMinkowski  (int): Defaults to 2.
+        wMax (int): upper bound of the weights. Defaults to 1.
         g (int): exponential parameter. Defaults to 1.
-        epsilon_EDR (float): Defaults to 0.001.
-        epsilon_LCSS (float): Defaults to 0.001.
+        epsilonEDR (float): Defaults to 0.001.
+        epsilonLCSS (float): Defaults to 0.001.
         SamplingRate (float): Defaults to 1000.
     
     Returns:
-        clusters (list): clusters of the applied algorithm.
+        Clusters (list): Clusters of the applied Algorithm.
     """
     if criterion == 'distance':
-        fclust = fclusterdata(data, threshold_dendrogram, criterion = 'distance', metric = distance, method = method_HC)
+        fclust = fclusterData(Data, ThresholdDendrogram, criterion = 'distance', metric = distance, method = methodHC)
 
     elif criterion=='maxclust':
-        if type(max_classes) == int:
-            k_elbow = max_classes
-            fclust = fclusterdata(data, k_elbow, criterion = 'maxclust', metric = distance, method = method_HC) 
+        if type(MaxClasses) == int:
+            kElbow = MaxClasses
+            fclust = fclusterData(Data, kElbow, criterion = 'maxclust', metric = distance, method = methodHC) 
         else:
             score = -1000
-            for k_elbow in max_classes:
-                print(k_elbow)
-                fclust_aux = fclusterdata(data, k_elbow, criterion = 'maxclust', metric = distance, method = method_HC) 
-                clusters_aux = []
+            for kElbow in MaxClasses:
+                print(kElbow)
+                fclust_aux = fclusterData(Data, kElbow, criterion = 'maxclust', metric = distance, method = methodHC) 
+                Clusters_aux = []
                 for i in range(max(fclust_aux)):
                     indexes = np.where(fclust_aux==i+1)[0]
-                    clusters_aux.append(indexes)
-                clusters_aux = [max(fclust_aux), clusters_aux]
-                score_aux  = Silhouette(data, clusters_aux, distance_str, p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate)
+                    Clusters_aux.append(indexes)
+                Clusters_aux = [max(fclust_aux), Clusters_aux]
+                score_aux  = Silhouette(Data, Clusters_aux, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
                 if score_aux>score:
                     score = score_aux
                     fclust = fclust_aux
-    clusters = []
+    Clusters = []
     for i in range(max(fclust)):
         indexes = np.where(fclust==i+1)[0]
-        clusters.append(indexes)
+        Clusters.append(indexes)
     
-    return clusters
+    return Clusters
 
 
-def Kshape_algo(data, nc2test, method_KM='silhouette'):
+def Kshape_Algo(Data, nc2test, methodKM='silhouette'):
     """
-    Given a dataset and the possible number of clusters to use, the function applies the k-shape algorithm.
+    Given a Dataset and the possible number of Clusters to use, the function applies the k-shape Algorithm.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset (n_samples x n_timesteps).
-        nc2test (np.ndarray): a vector with the possible choices in term of the number of clusters.
-        method_KM (str): method to compute the optimal number of clusters. Defaults to 'silhouette'.
+        Data (np.ndarray): 2D matrix representing the Dataset (n_samples x n_timesteps).
+        nc2test (np.ndarray): a vector with the possible choices in term of the number of Clusters.
+        methodKM (str): method to compute the optimal number of Clusters. Defaults to 'silhouette'.
     
     Returns:
         labels (np.ndarray): cluster labels for each sample.
-        c_best (int): optimal number of clusters.
-        centers (np.ndarray): coordinates of the centers of the clusters formed.
+        cBest (int): optimal number of Clusters.
+        Centers (np.ndarray): coordinates of the Centers of the Clusters formed.
     """
 
     # KShape richiede dati normalizzati e shape (n_samples, n_timesteps, 1)
-    data_scaled = TimeSeriesScalerMeanVariance().fit_transform(data)
+    DataScaled = TimeSeriesScalerMeanVariance().fit_transform(Data)
 
     iterations = []
     best_labels = None
-    best_centers = None
-    c_best = nc2test[0]
+    best_Centers = None
+    cBest = nc2test[0]
 
-    if method_KM == 'davies_bouldin':
-        best_score = float('inf')
+    if methodKM == 'davies_bouldin':
+        BestScore = float('inf')
     else:
-        best_score = -float('inf')
+        BestScore = -float('inf')
 
     if len(nc2test) == 1:
-        n_clusters = nc2test[0]
-        ks = KShape(n_clusters=n_clusters, random_state=42)
-        labels = ks.fit_predict(data_scaled)
-        return labels, n_clusters, ks.cluster_centers_
+        nClusters = nc2test[0]
+        ks = KShape(nClusters=nClusters, random_state=42)
+        labels = ks.fit_predict(DataScaled)
+        return labels, nClusters, ks.cluster_Centers_
 
     else:
-        for n_clusters in nc2test:
-            ks = KShape(n_clusters=n_clusters, random_state=42)
-            labels = ks.fit_predict(data_scaled)
+        for nClusters in nc2test:
+            ks = KShape(nClusters=nClusters, random_state=42)
+            labels = ks.fit_predict(DataScaled)
 
             # WCSS con distanza shape-based non ha senso, usiamo l'inertia di KShape
             wcss = ks.inertia_
 
             if len(np.unique(labels)) > 1:
                 # per silhouette usiamo i dati originali 2D (n_samples x n_timesteps)
-                data_2d = data_scaled.reshape(data_scaled.shape[0], -1)
-                if method_KM == 'silhouette':
-                    score = silhouette_score(data_2d, labels, sample_size=1000, random_state=42)
-                elif method_KM == 'davies_bouldin':
-                    score = davies_bouldin_score(data_2d, labels)
-                elif method_KM == 'calinski_harabasz':
-                    score = calinski_harabasz_score(data_2d, labels)
-                elif method_KM == 'wcss':
+                Data_2d = DataScaled.reshape(DataScaled.shape[0], -1)
+                if methodKM == 'silhouette':
+                    score = silhouette_score(Data_2d, labels, sample_size=1000, random_state=42)
+                elif methodKM == 'davies_bouldin':
+                    score = davies_bouldin_score(Data_2d, labels)
+                elif methodKM == 'calinski_harabasz':
+                    score = calinski_harabasz_score(Data_2d, labels)
+                elif methodKM == 'wcss':
                     score = wcss
             else:
                 score = 0
 
-            if method_KM == 'davies_bouldin':
-                if score < best_score:
-                    best_score = score
-                    c_best = n_clusters
+            if methodKM == 'davies_bouldin':
+                if score < BestScore:
+                    BestScore = score
+                    cBest = nClusters
                     best_labels = labels
-                    best_centers = ks.cluster_centers_
+                    best_Centers = ks.cluster_Centers_
             else:
-                if score > best_score:
-                    best_score = score
-                    c_best = n_clusters
+                if score > BestScore:
+                    BestScore = score
+                    cBest = nClusters
                     best_labels = labels
-                    best_centers = ks.cluster_centers_
+                    best_Centers = ks.cluster_Centers_
 
-            print(f"For n_centroids = {n_clusters}, {method_KM} score is {score}")
-            print(f"For n_centroids = {n_clusters}, davies_bouldin score is {davies_bouldin_score(data_2d, labels)}")
-            print(f"For n_centroids = {n_clusters}, calinski_harabasz score is {calinski_harabasz_score(data_2d, labels)}")
-            print(f"For n_centroids = {n_clusters}, wcss score is {wcss}")
+            print(f"For n_Centroids = {nClusters}, {methodKM} score is {score}")
+            print(f"For n_Centroids = {nClusters}, davies_bouldin score is {davies_bouldin_score(Data_2d, labels)}")
+            print(f"For n_Centroids = {nClusters}, calinski_harabasz score is {calinski_harabasz_score(Data_2d, labels)}")
+            print(f"For n_Centroids = {nClusters}, wcss score is {wcss}")
 
             iterations.append(score)
 
-        return best_labels, c_best, best_centers
+        return best_labels, cBest, best_Centers
 
-def Kmeans_algo(data, nc2test, distance, method_KM = 'silhouette'):
+def Kmeans_Algo(Data, nc2test, distance, methodKM = 'silhouette'):
     """
-    Given a dataset, a metric and the possible number of centroids to use, the function applies the k-means algorithm.
+    Given a Dataset, a metric and the possible number of Centroids to use, the function applies the k-means Algorithm.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        nc2test (np.ndarray): a vector with the possible choices in term of the number of centroids to use to apply the algorithm.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        nc2test (np.ndarray): a vector with the possible choices in term of the number of Centroids to use to apply the Algorithm.
         distance (str): metric used to compute distances.
-        method_KM (str): method to compute the optimal number of centroids. Defaults to 'silhouette'.
+        methodKM (str): method to compute the optimal number of Centroids. Defaults to 'silhouette'.
     """
 
   
     metric = distance_metric(type_metric.USER_DEFINED, func=distance)
     iterations = []
     classi = []
-    centers = []
-    c_best = 1
-    if method_KM == 'davies_bouldin':
-        best_score = float('inf')
+    Centers = []
+    cBest = 1
+    if methodKM == 'davies_bouldin':
+        BestScore = float('inf')
     else:
-        best_score = -float('inf')
+        BestScore = -float('inf')
 
     if len(nc2test) == 1:
-        n_clusters = nc2test[0]
-        start_centers = kmeans_plusplus_initializer(data, n_clusters).initialize();
-        kmeans_instance = kmeans(data, start_centers, metric=metric)
+        nClusters = nc2test[0]
+        StartCenters = kmeans_plusplus_initializer(Data, nClusters).initialize();
+        KmeansInstance = kmeans(Data, StartCenters, metric=metric)
         # run cluster analysis and obtain results
-        kmeans_instance.process()
-        clusters = kmeans_instance.get_clusters()
-        classi.append((n_clusters, clusters))
-        centers.append(kmeans_instance.get_centers())
-        return classi[0][1], n_clusters, centers[0] 
+        KmeansInstance.process()
+        Clusters = KmeansInstance.get_Clusters()
+        classi.append((nClusters, Clusters))
+        Centers.append(KmeansInstance.get_Centers())
+        return classi[0][1], nClusters, Centers[0] 
     
     else:
         for k in range(len(nc2test)):
             #random 
-            n_clusters = nc2test[k] 
-            n = len(data)
-            start_centers = kmeans_plusplus_initializer(data, n_clusters).initialize();
-            kmeans_instance = kmeans(data, start_centers, metric=metric)
+            nClusters = nc2test[k] 
+            n = len(Data)
+            StartCenters = kmeans_plusplus_initializer(Data, nClusters).initialize();
+            KmeansInstance = kmeans(Data, StartCenters, metric=metric)
             # run cluster analysis and obtain results
             kmeans_instance.process()
-            clusters = kmeans_instance.get_clusters()
-            n_clusters_postK = len(clusters)
-            classi.append((n_clusters_postK, clusters))
-            centers.append(kmeans_instance.get_centers())
+            Clusters = kmeans_instance.get_Clusters()
+            nClusters_postK = len(Clusters)
+            classi.append((nClusters_postK, Clusters))
+            Centers.append(kmeans_instance.get_Centers())
             labels = np.array(range(n))
             wcss = 0
-            for j in range(len(clusters)):
-                labels[clusters[j]] = j+1
-                cluster_points = data[clusters[j]] 
+            for j in range(len(Clusters)):
+                labels[Clusters[j]] = j+1
+                cluster_points = Data[Clusters[j]] 
                 for i in range(cluster_points.shape[0]): 
-                    wcss += distance(cluster_points[i], centers[k][j])**2
+                    wcss += distance(cluster_points[i], Centers[k][j])**2
             iterations.append(wcss)
 
             if len(np.unique(labels))>1:  
-                if method_KM == 'silhouette': 
-                    score = silhouette_score(data, labels, metric=metric, sample_size=1000, random_state=42)
-                elif method_KM == 'davies_bouldin':
-                    score = davies_bouldin_score(data, labels)
-                elif method_KM == 'calinski_harabasz':
-                    score = calinski_harabasz_score(data, labels)
-                elif method_KM == 'wcss':
+                if methodKM == 'silhouette': 
+                    score = silhouette_score(Data, labels, metric=metric, sample_size=1000, random_state=42)
+                elif methodKM == 'davies_bouldin':
+                    score = davies_bouldin_score(Data, labels)
+                elif methodKM == 'calinski_harabasz':
+                    score = calinski_harabasz_score(Data, labels)
+                elif methodKM == 'wcss':
                     score = wcss
             else:
                 score = 0 
 
-            if method_KM == 'davies_bouldin':
-                if score < best_score:  
-                    best_score = score
-                    c_best = n_clusters
+            if methodKM == 'davies_bouldin':
+                if score < BestScore:  
+                    BestScore = score
+                    cBest = nClusters
             else:
-                if score > best_score:
-                    best_score = score
-                    c_best = n_clusters
+                if score > BestScore:
+                    BestScore = score
+                    cBest = nClusters
                
      
-            print(f"For n_centroids = {n_clusters}, {method_KM} score is {score}")
-            print(f"For n_centroids = {n_clusters}, davies_bouldin score is {davies_bouldin_score(data, labels)}")
-            print(f"For n_centroids = {n_clusters}, calinski_harabasz score is {calinski_harabasz_score(data, labels)}")
-            print(f"For n_centroids = {n_clusters}, wcss score is {wcss}")
+            print(f"For n_Centroids = {nClusters}, {methodKM} score is {score}")
+            print(f"For n_Centroids = {nClusters}, davies_bouldin score is {davies_bouldin_score(Data, labels)}")
+            print(f"For n_Centroids = {nClusters}, calinski_harabasz score is {calinski_harabasz_score(Data, labels)}")
+            print(f"For n_Centroids = {nClusters}, wcss score is {wcss}")
 
 
             iterations.append(score) 
             
             
-        if method_KM == 'wcss':
+        if methodKM == 'wcss':
             nc2test_array = np.array(nc2test)
             kl = KneeLocator(nc2test_array, iterations, curve="convex", direction="decreasing")
-            k_elbow = kl.elbow
-            if k_elbow is None:
-                k_elbow=nc2test_array[-1]
-            idx_best = np.where(nc2test_array==k_elbow)[0][0]
+            kElbow = kl.elbow
+            if kElbow is None:
+                kElbow=nc2test_array[-1]
+            IdxBest = np.where(nc2test_array==kElbow)[0][0]
         else:
             nc2test_array = np.array(nc2test)
             try:
-                idx_best = np.where(nc2test_array==c_best)[0][0]
+                IdxBest = np.where(nc2test_array==cBest)[0][0]
             except:
-                idx_best = 0
+                IdxBest = 0
     
-        return classi[idx_best][1], classi[idx_best][0], centers[idx_best] 
+        return classi[IdxBest][1], classi[IdxBest][0], Centers[IdxBest] 
     
 
-def Silhouette(data, clusters, distance, p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate):
+def Silhouette(Data, Clusters, distance, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate):
     """
-    silhouette score of the clusters given the distance and the parameters of the distance.
+    silhouette score of the Clusters given the distance and the parameters of the distance.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        clusters (tuple): number of clusters and clusters obtained by the clustering algorithm applied.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        Clusters (tuple): number of Clusters and Clusters obtained by the clustering Algorithm applied.
         distance (str): metric used to compute distances.
-        p_minkowski (int): Defaults to 2.
-        w_max (int): upper bound of the weights. Defaults to 1.
+        pMinkowski  (int): Defaults to 2.
+        wMax (int): upper bound of the weights. Defaults to 1.
         g (int): exponential parameter. Defaults to 1.
-        epsilon_EDR (float): Defaults to 0.001.
-        epsilon_LCSS (float): Defaults to 0.001.
+        epsilonEDR (float): Defaults to 0.001.
+        epsilonLCSS (float): Defaults to 0.001.
         SamplingRate (float): Defaults to 1000.
     """
-    labels = np.array(range(data.shape[0]))
-    for j in range(clusters[0]):
-        labels[clusters[1][j]] = j+1
+    labels = np.array(range(Data.shape[0]))
+    for j in range(Clusters[0]):
+        labels[Clusters[1][j]] = j+1
     if len(np.unique(labels))>1:
         d = 'd_'+distance
         d = globals()[d]
-        d.__defaults__ = (p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate)
-        score = silhouette_score(data, labels, metric=d)
+        d.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+        score = silhouette_score(Data, labels, metric=d)
     else:
         score = 0 
 
     return score
 
-def ICA_algo(data, ncomp = 10):
+def ICA_Algo(Data, ncomp = 10):
     """
-    Apply Independent Component Analysis to reduce dimensionality and reconstruct the data.
+    Apply Independent Component Analysis to reduce dimensionality and reconstruct the Data.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset (n_samples x n_features).
+        Data (np.ndarray): 2D matrix representing the Dataset (n_samples x n_features).
         ncomp (int): maximum number of independent components to compute. Defaults to 10.
     
     Returns:
-        X_transformed (np.ndarray): dataset projected on the selected independent components.
-        X_back (np.ndarray): reconstructed dataset projected back to the original feature space.
+        Xtransformed (np.ndarray): Dataset projected on the selected independent components.
+        Xback (np.ndarray): reconstructed Dataset projected back to the original feature space.
     """
-    n = min(data.shape[0], data.shape[1], ncomp)
+    n = min(Data.shape[0], Data.shape[1], ncomp)
     ICA = FastICA(n_components=n, random_state=0)
-    X_transformed = ICA.fit_transform(data)
-    X_back = ICA.inverse_transform(X_transformed)
-    return X_transformed, X_back 
+    Xtransformed = ICA.fit_transform(Data)
+    Xback = ICA.inverse_transform(Xtransformed)
+    return Xtransformed, Xback 
 
-def kernelPCA_algo(data, ncomp = 10):
+def kernelPCA_Algo(Data, ncomp = 10):
     """
-    Given a dataset and a threshold between (0 and 1) in the term of the dispersion of the data to maintain, the function applies.
+    Given a Dataset and a threshold between (0 and 1) in the term of the dispersion of the Data to maintain, the function applies.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
+        Data (np.ndarray): 2D matrix representing the Dataset.
         ncomp (int): componentes number. Defaults to 10.
     
     Returns:
-        X_transformed (np.ndarray): the dataset projected on the principal components selected from the kernel PCA.
-        X_back (np.ndarray): the dataset projected back on the original dataset.
+        Xtransformed (np.ndarray): the Dataset projected on the principal components selected from the kernel PCA.
+        Xback (np.ndarray): the Dataset projected back on the original Dataset.
     """
     scaler = StandardScaler()
-    data_scaled = scaler.fit_transform(data)
-    n = min(data.shape[0], data.shape[1], ncomp)
+    DataScaled = scaler.fit_transform(Data)
+    n = min(Data.shape[0], Data.shape[1], ncomp)
     pca = KernelPCA(n_components=n, fit_inverse_transform=True)
-    pca.fit(data_scaled)
-    X_transformed = pca.fit_transform(data_scaled)
-    X_back = pca.inverse_transform(X_transformed)
-    X_back = scaler.inverse_transform(X_back)
+    pca.fit(DataScaled)
+    Xtransformed = pca.fit_transform(DataScaled)
+    Xback = pca.inverse_transform(Xtransformed)
+    Xback = scaler.inverse_transform(Xback)
 
-    return X_transformed, X_back
+    return Xtransformed, Xback
 
-def PCA_algo(data, threshold_variance = 0.9):
+def PCA_Algo(Data, ThresholdVariance = 0.9):
     """
-    Given a dataset and a threshold between (0 and 1) in the term of the dispersion of the data to maintain, the function applies.
+    Given a Dataset and a threshold between (0 and 1) in the term of the dispersion of the Data to maintain, the function applies.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        threshold_variance (float): A number between 0 and 1 that represent the amount of the dispersion of data to maintain apllying the PCA. Defaults to 0.9.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        ThresholdVariance (float): A number between 0 and 1 that represent the amount of the dispersion of Data to maintain apllying the PCA. Defaults to 0.9.
     
     Returns:
-        X_transformed (np.ndarray): the dataset projected on the principal components selected from the PCA.
-        X_back (np.ndarray): the dataset projected back on the original dataset.
+        Xtransformed (np.ndarray): the Dataset projected on the principal components selected from the PCA.
+        Xback (np.ndarray): the Dataset projected back on the original Dataset.
     """
-    n = min(data.shape[0], data.shape[1])
+    n = min(Data.shape[0], Data.shape[1])
     pca = PCA(n_components=n)
-    pca.fit(data)
+    pca.fit(Data)
     variance = pca.explained_variance_ratio_
     sum_ratio = 0
     i = 0
-    while sum_ratio < threshold_variance:
+    while sum_ratio < ThresholdVariance:
         sum_ratio += variance[i]
         i += 1
     n_c = i
     #print("Number of components to select: " +str(n_c))
     pca = PCA(n_components=n_c)
-    X_transformed  = pca.fit_transform(data)
-    X_back = pca.inverse_transform(X_transformed)
+    Xtransformed  = pca.fit_transform(Data)
+    Xback = pca.inverse_transform(Xtransformed)
 
-    return X_transformed, X_back
+    return Xtransformed, Xback
 
-def Leiden_algo(data, threshold_Leiden=0.95, distance_str = 'm', p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def Leiden_Algo(Data, ThresholdLeiden=0.95, DistanceStr = 'm', pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
-    Leiden graph based algorithm.
+    Leiden graph based Algorithm.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        threshold_Leiden (float): if graph based on Pearson's correlation coefficient we put to zero the weights of the edges under the threshold. Defaults to 0.95.
-        distance_str (str): metric to compute the adjacency matrix. Defaults to 'm'.
-        p_minkowski (int): Minkowski parameter. Defaults to 2.
-        w_max (int): WDTW and WDDTW parameter. Defaults to 1.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        ThresholdLeiden (float): if graph based on Pearson's correlation coefficient we put to zero the weights of the edges under the threshold. Defaults to 0.95.
+        DistanceStr (str): metric to compute the adjacency matrix. Defaults to 'm'.
+        pMinkowski  (int): Minkowski parameter. Defaults to 2.
+        wMax (int): WDTW and WDDTW parameter. Defaults to 1.
         g (int): WDTW and WDDTW parameter. Defaults to 1.
-        epsilon_EDR (float): EDR threshold. Defaults to 0.001.
-        epsilon_LCSS (float): LCSS threshold. Defaults to 0.001.
+        epsilonEDR (float): EDR threshold. Defaults to 0.001.
+        epsilonLCSS (float): LCSS threshold. Defaults to 0.001.
         SamplingRate (int): STS parameter. Defaults to 1000.
     
     Returns:
-        clusters (list): clusters of the applied algorithm.
+        Clusters (list): Clusters of the applied Algorithm.
         G (ig graph): Leiden graph.
-        partition (ig graph object): object containing the clusters labels.
+        partition (ig graph object): object containing the Clusters labels.
     """
     #distance ='rho'
-    if distance_str =='rho':
-        df = pd.DataFrame(data)
+    if DistanceStr =='rho':
+        df = pd.DataFrame(Data)
         c = df.corr()
-        c[c<=threshold_Leiden]=0
+        c[c<=ThresholdLeiden]=0
 
     else:
-        c = AdjacencyMatrix(data.T, distance_str, p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate) 
+        c = AdjacencyMatrix(Data.T, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate) 
 
     G =ig.Graph.Weighted_Adjacency(c, mode='undirected', attr='weight', loops=False)
     partition=la.find_partition(G, la.ModularityVertexPartition)
@@ -940,284 +939,284 @@ def Leiden_algo(data, threshold_Leiden=0.95, distance_str = 'm', p_minkowski = 2
     while improvement:
         improvement = optimiser.optimise_partition(partition)
     partition_membership=partition.membership
-    n_clusters = max(partition_membership)+1
+    nClusters = max(partition_membership)+1
     partition_membership = np.array(partition_membership)
-    clusters =[[] for i in range(n_clusters)] 
-    for i in range(n_clusters):
+    Clusters =[[] for i in range(nClusters)] 
+    for i in range(nClusters):
         idx = np.where(partition_membership==i)[0]
-        clusters[i].append(idx) 
+        Clusters[i].append(idx) 
 
-    return clusters, G, partition
+    return Clusters, G, partition
 
-def Clustering(data, algo = 'KM', distance_str = 'm', method_HC = 'complete', criterion_HC = 'distance', method_KM = 'silhouette', max_iter_FCM=10, threshold_variance = 0.9, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, fuzzy_parameter = 1, threshold_dendrogram = 0.7, max_classes = [2], threshold_Leiden = 0.9, SamplingRate = 1000, p_minkowski = 2, normalization = 'OFF', norm_mode ='min_max_single', ica_ncomp=10, kpca_ncomp=10): 
+def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', criterionHC = 'distance', methodKM = 'silhouette', MaxIterFCM=10, ThresholdVariance = 0.9, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, FuzzyParameter = 1, ThresholdDendrogram = 0.7, MaxClasses = [2], ThresholdLeiden = 0.9, SamplingRate = 1000, pMinkowski  = 2, Normalization = 'OFF', NormMode ='min_max_single', ica_ncomp=10, kpca_ncomp=10): 
     """
-    Given user choice, clustering algorithm.
+    Given user choice, clustering Algorithm.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        algo (str): clustering algorithm. Choices: c-means ('KM'), fuzzy c-means ('FCM'), hierarchical clustering ('HC'), Leiden ('Leiden') and applying first a dimensionality reduction by PCA ('PCA&KM', 'PCA&FCM', 'PCA&HC', 'PCA&Leiden'). Defaults to 'KM'.
-        distance_str (str): metric used for clustering. Defaults to 'm'.
-        method_HC (str): linkage method. Choices: 'complete', 'single', 'average'. Defaults to 'complete'.
-        criterion_HC (str): Hierarchical clustering criterion. Choices: 'distance', 'maxclust'. Defaults to 'distance'.
-        method_KM (str): Method to selct the optimal number of centroid. 'Choices: 'silhouette', 'wcss'. Defaults to 'silhouette'.
-        max_iter_FCM (int): maximum number of iterations for FCM. Defaults to 10.
-        threshold_variance (float): explained variance after PCA. Defaults to 0.9.
-        w_max (int): WDTW and WDDTW parameter. Defaults to 1.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        Algo (str): clustering Algorithm. Choices: c-means ('KM'), fuzzy c-means ('FCM'), hierarchical clustering ('HC'), Leiden ('Leiden') and applying first a dimensionality reduction by PCA ('PCA&KM', 'PCA&FCM', 'PCA&HC', 'PCA&Leiden'). Defaults to 'KM'.
+        DistanceStr (str): metric used for clustering. Defaults to 'm'.
+        methodHC (str): linkage method. Choices: 'complete', 'single', 'average'. Defaults to 'complete'.
+        criterionHC (str): Hierarchical clustering criterion. Choices: 'distance', 'maxclust'. Defaults to 'distance'.
+        methodKM (str): Method to selct the optimal number of centroid. 'Choices: 'silhouette', 'wcss'. Defaults to 'silhouette'.
+        MaxIterFCM (int): maximum number of iterations for FCM. Defaults to 10.
+        ThresholdVariance (float): explained variance after PCA. Defaults to 0.9.
+        wMax (int): WDTW and WDDTW parameter. Defaults to 1.
         g (int): WDTW and WDDTW parameter. Defaults to 1.
-        epsilon_EDR (float): EDR threshold. Defaults to 0.001.
-        epsilon_LCSS (float): LCSS threshold. Defaults to 0.001.
-        fuzzy_parameter (int): FCM parameter. Defaults to 1.
-        threshold_dendrogram (float): Cut height in percentage. Defaults to 0.7.
-        max_classes (list): Classes to test. Defaults to [2].
-        threshold_Leiden (float): Leiden threshold. Defaults to 0.9.
+        epsilonEDR (float): EDR threshold. Defaults to 0.001.
+        epsilonLCSS (float): LCSS threshold. Defaults to 0.001.
+        FuzzyParameter (int): FCM parameter. Defaults to 1.
+        ThresholdDendrogram (float): Cut height in percentage. Defaults to 0.7.
+        MaxClasses (list): Classes to test. Defaults to [2].
+        ThresholdLeiden (float): Leiden threshold. Defaults to 0.9.
         SamplingRate (int): STS parameter. Defaults to 1000.
-        p_minkowski (int): Minkowski parameter. Defaults to 2.
-        normalization (str): To applying normalization. Choices: 'ON', 'OFF'. Defaults to 'OFF'.
-        norm_mode (str): If normalization applied, to select the modality. Choices: 'min_max_single', 'min_max_global', 'mu_std_single', 'mu_std_global'. Defaults to 'min_max_single'.
+        pMinkowski  (int): Minkowski parameter. Defaults to 2.
+        Normalization (str): To applying Normalization. Choices: 'ON', 'OFF'. Defaults to 'OFF'.
+        NormMode (str): If Normalization applied, to select the modality. Choices: 'min_max_single', 'min_max_global', 'mu_std_single', 'mu_std_global'. Defaults to 'min_max_single'.
         ica_ncomp (int): the number of components for ICA.
         kpca_ncomp (int): the number of components for kernelPCA.
     """
 
-    distance = 'd_'+distance_str
+    distance = 'd_'+DistanceStr
     distance = globals()[distance]
-    distance.__defaults__ = (p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate)
+    distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
 
    
-    n = data.shape[0]
-    x = range(data.shape[1])
+    n = Data.shape[0]
+    x = range(Data.shape[1])
         
-    data_plot = data.copy()
+    Data_plot = Data.copy()
 
-    # NORMALIZATION
-    if normalization == 'ON':
-        if norm_mode =='min_max_single':
-            data = Whitening(data)
-        elif norm_mode =='min_max_global':
-            data = WhiteningGlobal(data)
-        elif norm_mode =='mu_std_single':
-            data = Whitening(data)
+    # Normalization
+    if Normalization == 'ON':
+        if NormMode =='min_max_single':
+            Data = Whitening(Data)
+        elif NormMode =='min_max_global':
+            Data = WhiteningGlobal(Data)
+        elif NormMode =='mu_std_single':
+            Data = Whitening(Data)
         else:
-            data = WhiteningGlobal(data)
+            Data = WhiteningGlobal(Data)
 
 
-    if type(max_classes) == int:
-        if max_classes < 2:
-            max_classes = 2
-        if max_classes >= len(data):
-            max_classes = len(data)
-        nc2test = [max_classes]
+    if type(MaxClasses) == int:
+        if MaxClasses < 2:
+            MaxClasses = 2
+        if MaxClasses >= len(Data):
+            MaxClasses = len(Data)
+        nc2test = [MaxClasses]
     else:
-        if len(max_classes)==1:
-            max_classes = max_classes[0] 
-            if max_classes < 2:
-                max_classes = 2
-            if max_classes >= len(data):
-                max_classes = len(data)
-            nc2test = [max_classes]
+        if len(MaxClasses)==1:
+            MaxClasses = MaxClasses[0] 
+            if MaxClasses < 2:
+                MaxClasses = 2
+            if MaxClasses >= len(Data):
+                MaxClasses = len(Data)
+            nc2test = [MaxClasses]
         else: 
-            nc2test = max_classes 
+            nc2test = MaxClasses 
 
     if n==1:
         return (1, [[0]])
     else: 
-        if algo == "HC":
-            threshold_dendrogram = Dendrogram(data=data, method_HC=method_HC, distance=distance, threshold_dendrogram=threshold_dendrogram)
-            clusters_HC = HierarchicalClustering(data=data, method_HC=method_HC, distance=distance, threshold_dendrogram=threshold_dendrogram, max_classes=nc2test, criterion = criterion_HC,
-                                                 distance_str = distance_str,
-                                                 p_minkowski = p_minkowski, w_max = w_max, g = g, epsilon_EDR = epsilon_EDR, epsilon_LCSS = epsilon_LCSS, SamplingRate = SamplingRate)
-            n_classes = len(clusters_HC)
-            clusters = []
-            for i in range(n_classes):
-                if len(clusters_HC[i])>0:
-                    clusters.append(clusters_HC[i])
-            n_classes = len(clusters)
+        if Algo == "HC":
+            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram)
+            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=nc2test, criterion = criterionHC,
+                                                 DistanceStr = DistanceStr,
+                                                 pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate = SamplingRate)
+            NClasses = len(ClustersHC)
+            Clusters = []
+            for i in range(NClasses):
+                if len(ClustersHC[i])>0:
+                    Clusters.append(ClustersHC[i])
+            NClasses = len(Clusters)
         
-        elif algo == "KM":  
-            clusters, n_classes, centers = Kmeans_algo(data=data, nc2test=nc2test, distance=distance, method_KM=method_KM)
+        elif Algo == "KM":  
+            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
 
         
-        elif algo == "FCM":
-            clusters_KM, n_classes_KM, centers_KM = Kmeans_algo(data=data, nc2test=nc2test, distance=distance, method_KM=method_KM)
-            clusters, centers, membership_mat = FCM.FCM(data=data, n_classes = n_classes_KM, centers=centers_KM, fuzzy_parameter=fuzzy_parameter, max_iter=max_iter_FCM, metric=distance)  
-            n_classes = len(clusters)
+        elif Algo == "FCM":
+            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            Clusters, Centers, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, metric=distance)  
+            NClasses = len(Clusters)
 
-        elif algo == "KShape":
-            clusters, n_classes, centers = Kshape_algo(data=data, nc2test=nc2test, method_KM=method_KM)
+        elif Algo == "KShape":
+            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=nc2test, methodKM=methodKM)
 
-        elif algo == "PCA&KShape":
-            data, data_postPCA = PCA_algo(data=data, threshold_variance=threshold_variance)
-            clusters, n_classes, centers = Kshape_algo(data=data, nc2test=nc2test, method_KM=method_KM)
+        elif Algo == "PCA&KShape":
+            Data, DataPostPCA = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
+            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=nc2test, methodKM=methodKM)
 
-        elif algo == "ICA&KShape":
-            data, data_postICA = ICA_algo(data=data, ncomp = ica_ncomp)
-            clusters, n_classes, centers = Kshape_algo(data=data, nc2test=nc2test, method_KM=method_KM)
+        elif Algo == "ICA&KShape":
+            Data, DataPostICA = ICA_Algo(Data=Data, ncomp = ica_ncomp)
+            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=nc2test, methodKM=methodKM)
 
-        elif algo == "KernelPCA&KShape":
-            data, data_postPCA = kernelPCA_algo(data=data, ncomp = kpca_ncomp)
-            clusters, n_classes, centers = Kshape_algo(data=data, nc2test=nc2test, method_KM=method_KM)
+        elif Algo == "KernelPCA&KShape":
+            Data, DataPostPCA = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
+            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=nc2test, methodKM=methodKM)
 
     
     
-        elif algo=="Leiden":
-            clusters_L = Leiden_algo(data=data.T, threshold_Leiden=threshold_Leiden, distance_str=distance_str, p_minkowski = p_minkowski, w_max = w_max, g = g, epsilon_EDR = epsilon_EDR, epsilon_LCSS = epsilon_LCSS, SamplingRate=SamplingRate)[0]
-            n_classes = len(clusters_L)
-            clusters = []
-            for i in range(n_classes):
-                if len(clusters_L[i][0])>0:
-                    clusters.append(clusters_L[i][0])
-            n_classes = len(clusters)
+        elif Algo=="Leiden":
+            Clusters_L = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            NClasses = len(Clusters_L)
+            Clusters = []
+            for i in range(NClasses):
+                if len(Clusters_L[i][0])>0:
+                    Clusters.append(Clusters_L[i][0])
+            NClasses = len(Clusters)
 
 
-        elif algo=="PCA&HC":
-            data, data_postPCA  = PCA_algo(data=data, threshold_variance=threshold_variance)
-            threshold_dendrogram = Dendrogram(data=data, method_HC=method_HC, distance=distance, threshold_dendrogram=threshold_dendrogram)
-            clusters_HC = HierarchicalClustering(data=data, method_HC=method_HC, distance=distance, threshold_dendrogram=threshold_dendrogram, max_classes=nc2test, criterion=criterion_HC,
-                                                 distance_str=distance_str,
-                                                 p_minkowski = p_minkowski, w_max = w_max, g = g, epsilon_EDR = epsilon_EDR, epsilon_LCSS = epsilon_LCSS, SamplingRate = SamplingRate)
-            n_classes = len(clusters_HC)
+        elif Algo=="PCA&HC":
+            Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
+            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram)
+            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=nc2test, criterion=criterionHC,
+                                                 DistanceStr=DistanceStr,
+                                                 pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate = SamplingRate)
+            NClasses = len(ClustersHC)
             
-            clusters = []
-            for i in range(n_classes):
-                if len(clusters_HC[i])>0:
-                    clusters.append(clusters_HC[i])
-            n_classes = len(clusters)
+            Clusters = []
+            for i in range(NClasses):
+                if len(ClustersHC[i])>0:
+                    Clusters.append(ClustersHC[i])
+            NClasses = len(Clusters)
 
         
-        elif algo == "PCA&KM":
-            data, data_postPCA = PCA_algo(data=data, threshold_variance=threshold_variance)
-            clusters, n_classes, centers = Kmeans_algo(data=data, nc2test=nc2test, distance=distance, method_KM=method_KM)
+        elif Algo == "PCA&KM":
+            Data, DataPostPCA = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
+            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
           
             
         
-        elif algo == "PCA&FCM":
-            data, data_postPCA  = PCA_algo(data=data, threshold_variance=threshold_variance)
-            clusters_KM, n_classes_KM, centers_KM = Kmeans_algo(data=data, nc2test=nc2test, distance=distance, method_KM=method_KM)
-            max_iter = 5
-            clusters, centers_FCM, membership_mat = FCM.FCM(data=data, n_classes = n_classes_KM, centers=centers_KM, fuzzy_parameter=fuzzy_parameter, max_iter=max_iter_FCM, metric=distance)
-            n_classes = len(clusters)
+        elif Algo == "PCA&FCM":
+            Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
+            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            MaxIter = 5
+            Clusters, Centers_FCM, membership_mat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, metric=distance)
+            NClasses = len(Clusters)
 
 
-        elif algo =="PCA&Leiden":
-            data, data_postPCA  = PCA_algo(data=data, threshold_variance=threshold_variance)
-            clusters_L = Leiden_algo(data=data.T, threshold_Leiden=threshold_Leiden, distance_str=distance_str, p_minkowski = p_minkowski, w_max = w_max, g = g, epsilon_EDR = epsilon_EDR, epsilon_LCSS = epsilon_LCSS, SamplingRate=SamplingRate)[0]
-            n_classes = len(clusters_L)
-            clusters = []
-            for i in range(n_classes):
-                if len(clusters_L[i][0])>0:
-                    clusters.append(clusters_L[i][0])
-            n_classes = len(clusters)
+        elif Algo =="PCA&Leiden":
+            Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
+            Clusters_L = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            NClasses = len(Clusters_L)
+            Clusters = []
+            for i in range(NClasses):
+                if len(Clusters_L[i][0])>0:
+                    Clusters.append(Clusters_L[i][0])
+            NClasses = len(Clusters)
 
-        elif algo=="ICA&HC":
-            data, data_postICA = ICA_algo(data=data, ncomp = ica_ncomp)
-            threshold_dendrogram = Dendrogram(data=data, method_HC=method_HC, distance=distance, threshold_dendrogram=threshold_dendrogram)
-            clusters_HC = HierarchicalClustering(data=data, method_HC=method_HC, distance=distance, threshold_dendrogram=threshold_dendrogram, max_classes=nc2test, criterion=criterion_HC,
-                                                 distance_str = distance_str,
-                                                 p_minkowski = p_minkowski, w_max = w_max, g = g, epsilon_EDR = epsilon_EDR, epsilon_LCSS = epsilon_LCSS, SamplingRate = SamplingRate)
-            n_classes = len(clusters_HC)
-            clusters = []
-            for i in range(n_classes):
-                if len(clusters_HC[i])>0:
-                    clusters.append(clusters_HC[i])
-            n_classes = len(clusters)
-
-        
-        elif algo == "ICA&KM":
-            data, data_postICA  = ICA_algo(data=data, ncomp = ica_ncomp)
-            clusters, n_classes, centers = Kmeans_algo(data=data, nc2test=nc2test, distance=distance, method_KM=method_KM)
-
-            
-        elif algo == "ICA&FCM":
-            data, data_postICA   = ICA_algo(data=data, ncomp = ica_ncomp)
-            clusters_KM, n_classes_KM, centers_KM = Kmeans_algo(data=data, nc2test=nc2test, distance=distance, method_KM=method_KM)
-            max_iter = 5
-            clusters, centers_FCM, membership_mat = FCM.FCM(data=data, n_classes = n_classes_KM, centers=centers_KM, fuzzy_parameter=fuzzy_parameter, max_iter=max_iter_FCM, metric=distance)
-            n_classes = len(clusters)
-
-
-        elif algo =="ICA&Leiden":
-            data, data_postICA   = ICA_algo(data=data, ncomp = ica_ncomp)
-            clusters_L = Leiden_algo(data=data.T, threshold_Leiden=threshold_Leiden, distance_str=distance_str, p_minkowski = p_minkowski, w_max = w_max, g = g, epsilon_EDR = epsilon_EDR, epsilon_LCSS = epsilon_LCSS, SamplingRate=SamplingRate)[0]
-            n_classes = len(clusters_L)
-            clusters = []
-            for i in range(n_classes):
-                if len(clusters_L[i][0])>0:
-                    clusters.append(clusters_L[i][0])
-            n_classes = len(clusters)
-            
-        elif algo=="kernelPCA&HC":
-            data, data_postPCA  = kernelPCA_algo(data=data, ncomp = kpca_ncomp)
-            threshold_dendrogram = Dendrogram(data=data, method_HC=method_HC, distance=distance, threshold_dendrogram=threshold_dendrogram)
-            clusters_HC = HierarchicalClustering(data=data, method_HC=method_HC, distance=distance, threshold_dendrogram=threshold_dendrogram, max_classes=nc2test, criterion=criterion_HC,
-                                                 distance_str = distance_str,
-                                                 p_minkowski = p_minkowski, w_max = w_max, g = g, epsilon_EDR = epsilon_EDR, epsilon_LCSS = epsilon_LCSS, SamplingRate = SamplingRate)
-            n_classes = len(clusters_HC)
-            clusters = []
-            for i in range(n_classes):
-                if len(clusters_HC[i])>0:
-                    clusters.append(clusters_HC[i])
-            n_classes = len(clusters)
+        elif Algo=="ICA&HC":
+            Data, DataPostICA = ICA_Algo(Data=Data, ncomp = ica_ncomp)
+            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram)
+            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=nc2test, criterion=criterionHC,
+                                                 DistanceStr = DistanceStr,
+                                                 pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate = SamplingRate)
+            NClasses = len(ClustersHC)
+            Clusters = []
+            for i in range(NClasses):
+                if len(ClustersHC[i])>0:
+                    Clusters.append(ClustersHC[i])
+            NClasses = len(Clusters)
 
         
-        elif algo == "kernelPCA&KM":
-            data, data_postPCA = kernelPCA_algo(data=data, ncomp = kpca_ncomp)
-            clusters, n_classes, centers = Kmeans_algo(data=data, nc2test=nc2test, distance=distance, method_KM=method_KM)
+        elif Algo == "ICA&KM":
+            Data, DataPostICA  = ICA_Algo(Data=Data, ncomp = ica_ncomp)
+            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+
+            
+        elif Algo == "ICA&FCM":
+            Data, DataPostICA   = ICA_Algo(Data=Data, ncomp = ica_ncomp)
+            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            MaxIter = 5
+            Clusters, CentersFCM, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, metric=distance)
+            NClasses = len(Clusters)
+
+
+        elif Algo =="ICA&Leiden":
+            Data, DataPostICA   = ICA_Algo(Data=Data, ncomp = ica_ncomp)
+            Clusters_L = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            NClasses = len(Clusters_L)
+            Clusters = []
+            for i in range(NClasses):
+                if len(Clusters_L[i][0])>0:
+                    Clusters.append(Clusters_L[i][0])
+            NClasses = len(Clusters)
+            
+        elif Algo=="kernelPCA&HC":
+            Data, DataPostPCA  = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
+            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram)
+            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=nc2test, criterion=criterionHC,
+                                                 DistanceStr = DistanceStr,
+                                                 pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate = SamplingRate)
+            NClasses = len(ClustersHC)
+            Clusters = []
+            for i in range(NClasses):
+                if len(ClustersHC[i])>0:
+                    Clusters.append(ClustersHC[i])
+            NClasses = len(Clusters)
+
+        
+        elif Algo == "kernelPCA&KM":
+            Data, DataPostPCA = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
+            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
           
             
         
-        elif algo == "kernelPCA&FCM":
-            data, data_postPCA  = kernelPCA_algo(data=data, ncomp = kpca_ncomp)
-            clusters_KM, n_classes_KM, centers_KM = Kmeans_algo(data=data, nc2test=nc2test, distance=distance, method_KM=method_KM)
-            max_iter = 5
-            clusters, centers_FCM, membership_mat = FCM.FCM(data=data, n_classes = n_classes_KM, centers=centers_KM, fuzzy_parameter=fuzzy_parameter, max_iter=max_iter_FCM, metric=distance)
-            n_classes = len(clusters)
+        elif Algo == "kernelPCA&FCM":
+            Data, DataPostPCA  = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
+            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            MaxIter = 5
+            Clusters, CentersFCM, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, metric=distance)
+            NClasses = len(Clusters)
 
-        return (n_classes, clusters)
+        return (NClasses, Clusters)
 
-def RecursiveClustering(data, algo = 'KM', distance_str = 'm', method_HC = 'complete', criterion_HC = 'distance', method_KM = 'silhouette', max_iter_FCM=10, threshold_variance = 0.9, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, fuzzy_parameter = 1, noise = 0, threshold_dendrogram = 0.33, max_classes = [2], threshold_Leiden = 0.9, SamplingRate = 1000, p_minkowski = 2, normalization = 'OFF', norm_mode ='min_max_single'):
+def RecursiveClustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', criterionHC = 'distance', methodKM = 'silhouette', MaxIterFCM=10, ThresholdVariance = 0.9, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, FuzzyParameter = 1, noise = 0, ThresholdDendrogram = 0.33, MaxClasses = [2], ThresholdLeiden = 0.9, SamplingRate = 1000, pMinkowski  = 2, Normalization = 'OFF', NormMode ='min_max_single'):
     """
-    This algorithm is recursive, based on the sum of squares criteria.
+    This Algorithm is recursive, based on the sum of squares criteria.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        algo (str): clustering algorithm. Choices: c-means ('KM'), fuzzy c-means ('FCM'), hierarchical clustering ('HC'), Leiden ('Leiden') and applying first a dimensionality reduction by PCA ('PCA&KM', 'PCA&FCM', 'PCA&HC', 'PCA&Leiden'). Defaults to 'KM'.
-        distance_str (str): metric used for clustering. Defaults to 'm'.
-        method_HC (str): linkage method. Choices: 'complete', 'single', 'average'. Defaults to 'complete'.
-        criterion_HC (str): Hierarchical clustering criterion. Choices: 'distance', 'maxclust'. Defaults to 'distance'.
-        method_KM (str): Method to selct the optimal number of centroid. 'Choices: 'silhouette', 'wcss'. Defaults to 'silhouette'.
-        max_iter_FCM (int): maximum number of iterations for FCM. Defaults to 10.
-        threshold_variance (float): explained variance after PCA. Defaults to 0.9.
-        w_max (int): WDTW and WDDTW parameter. Defaults to 1.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        Algo (str): clustering Algorithm. Choices: c-means ('KM'), fuzzy c-means ('FCM'), hierarchical clustering ('HC'), Leiden ('Leiden') and applying first a dimensionality reduction by PCA ('PCA&KM', 'PCA&FCM', 'PCA&HC', 'PCA&Leiden'). Defaults to 'KM'.
+        DistanceStr (str): metric used for clustering. Defaults to 'm'.
+        methodHC (str): linkage method. Choices: 'complete', 'single', 'average'. Defaults to 'complete'.
+        criterionHC (str): Hierarchical clustering criterion. Choices: 'distance', 'maxclust'. Defaults to 'distance'.
+        methodKM (str): Method to selct the optimal number of centroid. 'Choices: 'silhouette', 'wcss'. Defaults to 'silhouette'.
+        MaxIterFCM (int): maximum number of iterations for FCM. Defaults to 10.
+        ThresholdVariance (float): explained variance after PCA. Defaults to 0.9.
+        wMax (int): WDTW and WDDTW parameter. Defaults to 1.
         g (int): WDTW and WDDTW parameter. Defaults to 1.
-        epsilon_EDR (float): EDR threshold. Defaults to 0.001.
-        epsilon_LCSS (float): LCSS threshold. Defaults to 0.001.
-        fuzzy_parameter (int): FCM parameter. Defaults to 1.
-        noise (int): Percentage of noise to add to data. Defaults to 0.
-        threshold_dendrogram (float): Cut height in percentage. Defaults to 0.7.
-        max_classes (int): maximum number of classes. Defaults to 1.
-        threshold_Leiden (float): Leiden threshold. Defaults to 0.9.
+        epsilonEDR (float): EDR threshold. Defaults to 0.001.
+        epsilonLCSS (float): LCSS threshold. Defaults to 0.001.
+        FuzzyParameter (int): FCM parameter. Defaults to 1.
+        noise (int): Percentage of noise to add to Data. Defaults to 0.
+        ThresholdDendrogram (float): Cut height in percentage. Defaults to 0.7.
+        MaxClasses (int): maximum number of classes. Defaults to 1.
+        ThresholdLeiden (float): Leiden threshold. Defaults to 0.9.
         SamplingRate (int): STS parameter. Defaults to 1000.
-        p_minkowski (int): Minkowski parameter. Defaults to 2.
-        normalization (str): To applying normalization. Choices: 'ON', 'OFF'. Defaults to 'OFF'.
-        norm_mode (str): If normalization applied, to select the modality. Choices: 'min_max_single', 'min_max_global', 'mu_std_single', 'mu_std_global'. Defaults to 'min_max_single'.
+        pMinkowski  (int): Minkowski parameter. Defaults to 2.
+        Normalization (str): To applying Normalization. Choices: 'ON', 'OFF'. Defaults to 'OFF'.
+        NormMode (str): If Normalization applied, to select the modality. Choices: 'min_max_single', 'min_max_global', 'mu_std_single', 'mu_std_global'. Defaults to 'min_max_single'.
     """
     
-    distance = 'd_'+distance_str
+    distance = 'd_'+DistanceStr
     distance = globals()[d]
         
-    data_plot = data.copy()
+    Data_plot = Data.copy()
 
-    distance.__defaults__ = (p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate)
-    media = np.mean(data_plot,0)
+    distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+    media = np.mean(Data_plot,0)
     SS = 0
-    for i in range(data_plot.shape[0]):
-        SS += d(data_plot[i], media)**2
-    clusters = Clustering(data=data, algo=algo, distance_str=distance_str, method_HC = method_HC, criterion_HC=criterion_HC, method_KM=method_KM, max_iter_FCM=max_iter_FCM, threshold_variance=threshold_variance, w_max=w_max, g=g, epsilon_EDR=epsilon_EDR, epsilon_LCSS=epsilon_LCSS, fuzzy_parameter=fuzzy_parameter, noise=noise, threshold_dendrogram=threshold_dendrogram, max_classes=max_classes, threshold_Leiden=threshold_Leiden, SamplingRate=SamplingRate, p_minkowski=p_minkowski, normalization=normalization, norm_mode=norm_mode) 
-    clusters = clusters[1]    
+    for i in range(Data_plot.shape[0]):
+        SS += d(Data_plot[i], media)**2
+    Clusters = Clustering(Data=Data, Algo=Algo, DistanceStr=DistanceStr, methodHC = methodHC, criterionHC=criterionHC, methodKM=methodKM, MaxIterFCM=MaxIterFCM, ThresholdVariance=ThresholdVariance, wMax=wMax, g=g, epsilonEDR=epsilonEDR, epsilonLCSS=epsilonLCSS, FuzzyParameter=FuzzyParameter, noise=noise, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=MaxClasses, ThresholdLeiden=ThresholdLeiden, SamplingRate=SamplingRate, pMinkowski =pMinkowski , Normalization=Normalization, NormMode=NormMode) 
+    Clusters = Clusters[1]    
     wcssk_list = [] 
     wcss_value = 0
-    for j in range(len(clusters)):
+    for j in range(len(Clusters)):
         wcssk = 0
-        cluster_points = data_plot[clusters[j]] 
+        cluster_points = Data_plot[Clusters[j]] 
         cluster_points=cluster_points.reshape((cluster_points.shape[-2],cluster_points.shape[-1]))
         center = np.mean(cluster_points,0)
         for i in range(cluster_points.shape[0]): 
@@ -1225,23 +1224,23 @@ def RecursiveClustering(data, algo = 'KM', distance_str = 'm', method_HC = 'comp
         wcss_value+=wcssk
         wcssk_list.append(wcssk)
     while max(wcssk_list)>SS/100*25:
-        new_clusters = [] 
-        for j in range(len(clusters)):
+        new_Clusters = [] 
+        for j in range(len(Clusters)):
             if wcssk_list[j]>SS/100*25:
-                data = data_plot.copy()
-                clusters_j = Clustering(data=data[clusters[j]].reshape(data[clusters[j]].shape[-2],data[clusters[j]].shape[-1]), algo=algo, distance_str=distance_str, method_HC = method_HC, criterion_HC=criterion_HC, method_KM=method_KM, max_iter_FCM=max_iter_FCM, threshold_variance=threshold_variance, w_max=w_max, g=g, epsilon_EDR=epsilon_EDR, epsilon_LCSS=epsilon_LCSS, fuzzy_parameter=fuzzy_parameter, noise=noise, threshold_dendrogram=threshold_dendrogram, max_classes=max_classes, threshold_Leiden=threshold_Leiden, SamplingRate=SamplingRate, p_minkowski=p_minkowski, normalization=normalization, norm_mode=norm_mode)
-                clusters_j = clusters_j[1] 
-                indexes = np.array(sorted(clusters[j]))
-                for i in range(len(clusters_j)):
-                    new_clusters.append(list(indexes[clusters_j[i]]))
+                Data = Data_plot.copy()
+                Clusters_j = Clustering(Data=Data[Clusters[j]].reshape(Data[Clusters[j]].shape[-2],Data[Clusters[j]].shape[-1]), Algo=Algo, DistanceStr=DistanceStr, methodHC = methodHC, criterionHC=criterionHC, methodKM=methodKM, MaxIterFCM=MaxIterFCM, ThresholdVariance=ThresholdVariance, wMax=wMax, g=g, epsilonEDR=epsilonEDR, epsilonLCSS=epsilonLCSS, FuzzyParameter=FuzzyParameter, noise=noise, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=MaxClasses, ThresholdLeiden=ThresholdLeiden, SamplingRate=SamplingRate, pMinkowski =pMinkowski , Normalization=Normalization, NormMode=NormMode)
+                Clusters_j = Clusters_j[1] 
+                indexes = np.array(sorted(Clusters[j]))
+                for i in range(len(Clusters_j)):
+                    new_Clusters.append(list(indexes[Clusters_j[i]]))
             else:
-                new_clusters.append(clusters[j])
-        clusters = new_clusters
+                new_Clusters.append(Clusters[j])
+        Clusters = new_Clusters
         wcssk_list = [] 
         wcss_value = 0
-        for j in range(len(clusters)):
+        for j in range(len(Clusters)):
             wcssk = 0
-            cluster_points = data_plot[clusters[j]] 
+            cluster_points = Data_plot[Clusters[j]] 
             cluster_points=cluster_points.reshape((cluster_points.shape[-2],cluster_points.shape[-1]))
             center = np.mean(cluster_points,0)
             for i in range(cluster_points.shape[0]): 
@@ -1249,48 +1248,48 @@ def RecursiveClustering(data, algo = 'KM', distance_str = 'm', method_HC = 'comp
             wcss_value+=wcssk
             wcssk_list.append(wcssk)
     
-    return (len(clusters),clusters)
+    return (len(Clusters),Clusters)
     
-def ClusterCentroids(data, clusters):
+def ClusterCentroids(Data, Clusters):
     """
-    Given a dataset and its subdivision in clusters, the function returns the centers of the clusters.
+    Given a Dataset and its subdivision in Clusters, the function returns the Centers of the Clusters.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
-        clusters (tuple): number of clusters and clusters obtained by the clustering algorithm applied.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        Clusters (tuple): number of Clusters and Clusters obtained by the clustering Algorithm applied.
     
     Returns:
-        centroids (np.ndarray): a vector with the coordinates of the centers of the clusters.
+        Centroids (np.ndarray): a vector with the coordinates of the Centers of the Clusters.
     """
-    n_classes = len(clusters[1])
-    centroids = np.zeros((n_classes, data.shape[1]))
-    for i in range(n_classes):
-        centroids[i]=np.mean(data[clusters[1][i]],0)
-    return centroids 
+    NClasses = len(Clusters[1])
+    Centroids = np.zeros((NClasses, Data.shape[1]))
+    for i in range(NClasses):
+        Centroids[i]=np.mean(Data[Clusters[1][i]],0)
+    return Centroids 
 
-def Classification(centroids, data, distance_str='m', p_minkowski = 2, w_max = 1, g = 1, epsilon_EDR = 0.001, epsilon_LCSS = 0.001, SamplingRate=1000):
+def Classification(Centroids, Data, DistanceStr='m', pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
-    Given a dataset, a group of centroids and a metric to compute distances between each data and each centroids,.
+    Given a Dataset, a group of Centroids and a metric to compute distances between each Data and each Centroids,.
     
     Args:
-        centroids (np.ndarray): a vector with the coordinates of the centers of some clusters.
-        data (np.ndarray): 2D matrix representing the dataset.
-        distance_str (str): metric to compute distances. Defaults to 'ed'.
+        Centroids (np.ndarray): a vector with the coordinates of the Centers of some Clusters.
+        Data (np.ndarray): 2D matrix representing the Dataset.
+        DistanceStr (str): metric to compute distances. Defaults to 'ed'.
     
     Returns:
-        classification (list): clusters obtained from the dataset assigning each data to the class of the closest centroid.
+        classification (list): Clusters obtained from the Dataset assigning each Data to the class of the closest centroid.
     """
-    distance = 'd_'+distance_str
+    distance = 'd_'+DistanceStr
     metric = globals()[distance]
-    metric.__defaults__ = (p_minkowski, w_max, g, epsilon_EDR, epsilon_LCSS, SamplingRate)
-    n = data.shape[0]
-    x = data.shape[1] 
-    c = centroids.shape[0] 
+    metric.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+    n = Data.shape[0]
+    x = Data.shape[1] 
+    c = Centroids.shape[0] 
     classification = []  
     for i in range(n):
         distances = [] 
         for j in range(c):
-            distances.append(metric(data[i],centroids[j]))
+            distances.append(metric(Data[i],Centroids[j]))
         distances = np.array(distances)
         idx_m = np.where(distances==min(distances))[0][0] 
         idx_m = int(idx_m)
@@ -1298,27 +1297,27 @@ def Classification(centroids, data, distance_str='m', p_minkowski = 2, w_max = 1
 
     return classification
 
-def GaussianNoise(data, noise, seed):
+def GaussianNoise(Data, noise, seed):
     """
-    Function to add Gaussian noise to data.
+    Function to add Gaussian noise to Data.
     
     Args:
-        data (np.ndarray): 2D matrix representing the dataset.
+        Data (np.ndarray): 2D matrix representing the Dataset.
         noise (float): amount of noise to add.
         seed (int): seed for random generation.
     
     Returns:
-        data (np.ndarray): 2D matrix representing the dataset after the adding of noise.
+        Data (np.ndarray): 2D matrix representing the Dataset after the adding of noise.
     """
     np.random.seed(seed)
-    for i in range(len(data)):
-        sigma = np.std(data[i])
+    for i in range(len(Data)):
+        sigma = np.std(Data[i])
         if sigma == 0:
-            data[i] = data[i]+noise*np.random.normal(0,1,len(data[i]))
+            Data[i] = Data[i]+noise*np.random.normal(0,1,len(Data[i]))
         else:
-            data[i] = data[i]+noise*np.random.normal(0,sigma,len(data[i]))
+            Data[i] = Data[i]+noise*np.random.normal(0,sigma,len(Data[i]))
 
-    return data
+    return Data
 
 
         

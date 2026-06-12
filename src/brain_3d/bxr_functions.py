@@ -9,6 +9,7 @@ import os
 import h5py
 import time
 from . import brw_functions as brw_f
+import json
 
 def ReadBXR(Filename, WellID):
     """
@@ -324,15 +325,15 @@ def WaveformsPlot(Bxr, WellID, StartTime=0, Duration=0.01, ChIdx=0):
     WaveformData = {} if SpikeSortingPerformed else []
     ts = []
     for i in range(0, DataLength):
-        if SpikeDataChIdxs[i] == ChIdx and StartFrame <= spikeDataTimestamps[i] < StartFrame + NumFrames:
-            ts.append(spikeDataTimestamps[i])
-            if spikeSortingPerformed:
+        if SpikeDataChIdxs[i] == ChIdx and StartFrame <= SpikeDataTimestamps[i] < StartFrame + NumFrames:
+            ts.append(SpikeDataTimestamps[i])
+            if SpikeSortingPerformed:
                 spikeUnit = spikeDataChUnits[i]
                 if spikeUnit not in WaveformData.keys():
                     WaveformData[spikeUnit] = []
-                WaveformData[spikeUnit].append(SpikeDataWaveforms[i*waveformLength:i*waveformLength+waveformLength])
+                WaveformData[spikeUnit].append(SpikeDataWaveforms[i*WaveformLength:i*WaveformLength+WaveformLength])
             else:
-                WaveformData.append(SpikeDataWaveforms[i*waveformLength:i*waveformLength+waveformLength])
+                WaveformData.append(SpikeDataWaveforms[i*WaveformLength:i*WaveformLength+WaveformLength])
     
     # visualize waveforms for the given channel Index, if spike sorting was performed,
     # units will be plotted with different colors
@@ -343,7 +344,7 @@ def WaveformsPlot(Bxr, WellID, StartTime=0, Duration=0.01, ChIdx=0):
         plt.figure()
         x = np.arange(0, WaveformLength, 1) / SamplingRate
 
-        if spikeSortingPerformed:
+        if SpikeSortingPerformed:
             colors = list(mcolors.BASE_COLORS.keys())
             c = 0
             for unit in WaveformData:
@@ -466,19 +467,17 @@ def SpikesDataset(brw, Bxr, WellID, DownsamplingFrequency, StartTime=0, Duration
     
     try:
         SamplingRate = brw.attrs['SamplingRate']
-        NumChannels = np.array(brw[WellID + '/StoredChIdxs']).shape[0]
     except KeyError:
         info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
-        NumChannels = len(info['CorePlateData']['StoredPlateElIdxs']) 
     
     SpikeFrames, SpikeChannels = Spikes2Df(Bxr, WellID, StartTime, Duration)
     NumSpikes = len(SpikeFrames)
 
     SpikesForChannels = np.zeros(NumSpikes)
     for i in range(NumSpikes):
-        ch = SpikeChannels[i]
-        SpikesForChannels[ch] = SpikesForChannels[ch]+1
+        aux = SpikeChannels[i]
+        SpikesForChannels[aux] = SpikesForChannels[aux]+1
     max = np.max(SpikesForChannels)
     ChMax = np.where(SpikesForChannels == max)[0]
     if len(ChMax)==1:
