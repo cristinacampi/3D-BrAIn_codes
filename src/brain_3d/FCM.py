@@ -19,18 +19,18 @@ def InitializeMembershipMatrix(NPoints, NClasses):
         list: membership matrix of shape [NPoints, NClasses] with random normalized values
     """
     MembershipMat = []
-    for i in range(NPoints):
+    for I in range(NPoints):
         # Generate random membership values
         RandomNumList = [random.random() for _ in range(NClasses)]
-        summation = sum(RandomNumList)
+        Summation = sum(RandomNumList)
         
         # Normalize to sum to 1
-        TempList = [x / summation for x in RandomNumList]
+        TempList = [X / Summation for X in RandomNumList]
         
         # Set max value to 1, others to 0 (hard initialization)
-        flag = TempList.index(max(TempList))
-        for j in range(len(TempList)):
-            TempList[j] = 1 if j == flag else 0
+        Flag = TempList.index(max(TempList))
+        for J in range(len(TempList)):
+            TempList[J] = 1 if J == Flag else 0
         
         MembershipMat.append(TempList)
     
@@ -53,20 +53,20 @@ def CalculateClusterCenters(Data, MembershipMat, NPoints, NClasses, FuzzyParamet
     ClusterMemVal = list(zip(*MembershipMat))
     ClusterCenters = []
     
-    for j in range(NClasses):
-        x = list(ClusterMemVal[j])
-        xRaised = [p ** FuzzyParameter for p in x]
-        Denominator = sum(xRaised)
+    for J in range(NClasses):
+        X = list(ClusterMemVal[J])
+        XRaised = [P ** FuzzyParameter for P in X]
+        Denominator = sum(XRaised)
         
         # Calculate weighted sum of Data points
         TempNum = []
-        for i in range(NPoints):
-            DataPoint = list(Data[i])
-            prod = [xRaised[i] * val for val in DataPoint]
-            TempNum.append(prod)
+        for I in range(NPoints):
+            DataPoint = list(Data[I])
+            Prod = [XRaised[I] * Val for Val in DataPoint]
+            TempNum.append(Prod)
         
         Numerator = list(map(sum, list(zip(*TempNum))))
-        Center = [z / Denominator for z in Numerator]
+        Center = [Z / Denominator for Z in Numerator]
         ClusterCenters.append(Center)
     
     return ClusterCenters
@@ -87,33 +87,33 @@ def UpdateMembershipValue(Data, MembershipMat, NPoints, NClasses, FuzzyParameter
     Returns:
         list: updated membership matrix
     """
-    p = float(2 / (FuzzyParameter - 1))
+    P = float(2 / (FuzzyParameter - 1))
     
-    for i in range(NPoints):
-        x = list(Data[i])
-        distances = []
+    for I in range(NPoints):
+        X = list(Data[I])
+        Distances = []
         
         # Calculate distances to all cluster centers
-        for k in range(NClasses):
+        for K in range(NClasses):
             try:
-                d = Metric(x, ClusterCenters[k])
+                D = Metric(X, ClusterCenters[K])
             except Exception:
-                d = 0
-            distances.append(d)
+                D = 0
+            Distances.append(D)
         
         # Check for zero distances (Data point coincides with cluster center)
-        idx = np.where(np.array(distances) == 0)[0]
+        Idx = np.where(np.array(Distances) == 0)[0]
         
-        if len(idx) == 0:
+        if len(Idx) == 0:
             # Update membership values using fuzzy formula
-            for j in range(NClasses):
-                den = sum([math.pow(float(distances[j] / distances[c]), p) for c in range(NClasses)])
-                MembershipMat[i][j] = float(1 / den)
+            for J in range(NClasses):
+                Den = sum([math.pow(float(Distances[J] / Distances[C]), P) for C in range(NClasses)])
+                MembershipMat[I][J] = float(1 / Den)
         else:
             # Point coincides with cluster center: membership = 1 for that cluster
-            for j in range(NClasses):
-                MembershipMat[i][j] = 0
-            MembershipMat[i][idx[0]] = 1
+            for J in range(NClasses):
+                MembershipMat[I][J] = 0
+            MembershipMat[I][Idx[0]] = 1
     
     return MembershipMat
 
@@ -131,9 +131,9 @@ def GetClusters(MembershipMat, NPoints):
         list: cluster labels for each Data point
     """
     ClusterLabels = []
-    for i in range(NPoints):
-        MaxVal, idx = max((val, idx) for (idx, val) in enumerate(MembershipMat[i]))
-        ClusterLabels.append(idx)
+    for I in range(NPoints):
+        MaxVal, Idx = max((Val, Idx) for (Idx, Val) in enumerate(MembershipMat[I]))
+        ClusterLabels.append(Idx)
     
     return ClusterLabels
 
@@ -207,9 +207,9 @@ def FCM(Data, NClasses, Centers, FuzzyParameter, MaxIter, Metric):
     
     # Convert labels to cluster index lists
     Clusters = []
-    labels = np.array(Labels)
-    for i in range(NClasses):
-        indexes = np.where(labels == i)[0]
-        Clusters.append(indexes)
+    LabelsArray = np.array(Labels)
+    for I in range(NClasses):
+        Indexes = np.where(LabelsArray == I)[0]
+        Clusters.append(Indexes)
     
     return Clusters, Centers, MembershipMat

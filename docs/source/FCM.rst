@@ -1,7 +1,7 @@
-FCM module
+Fcm module
 ==========
 
-.. automodule:: brain_3d.FCM
+.. automodule:: brain_3d.Fcm
    :members:
    :show-inheritance:
    :undoc-members:

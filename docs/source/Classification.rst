@@ -1,7 +1,7 @@
-bxr\_functions module
+Classification module
 =====================
 
-.. automodule:: brain_3d.bxr_functions
+.. automodule:: brain_3d.Classification
    :members:
    :show-inheritance:
    :undoc-members:

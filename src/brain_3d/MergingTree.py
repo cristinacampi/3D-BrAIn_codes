@@ -94,11 +94,11 @@ def MergingTree(G, Partition):
     Labels = []
     TreeLevels = []
     
-    for i in range(NCommunity):
-        idxs = np.where(np.array(Partition.membership) == i)[0]
-        Clusters.append(list(idxs))
-        Nodi.append(Node(Data=str(i)))
-        Labels.append(str(i))
+    for I in range(NCommunity):
+        Idxs = np.where(np.array(Partition.membership) == I)[0]
+        Clusters.append(list(Idxs))
+        Nodi.append(Node(Data=str(I)))
+        Labels.append(str(I))
     
     # Iteratively merge Clusters
     while len(Clusters) > 2:
@@ -107,35 +107,35 @@ def MergingTree(G, Partition):
         SumDegree = []
         
         # Calculate degree sums for each cluster
-        for i in range(NCommunity):
-            Subgraphs.append(G.subgraph(Clusters[i]))
-            SumDegree.append(sum(Subgraphs[i].degree()))
+        for I in range(NCommunity):
+            Subgraphs.append(G.subgraph(Clusters[I]))
+            SumDegree.append(sum(Subgraphs[I].degree()))
 
         # Calculate inter-community edge weights
         K = np.zeros((NCommunity, NCommunity))
-        for i in range(NCommunity):
-            for j in range(i + 1, NCommunity):
-                A = G.subgraph(Clusters[i])
-                B = G.subgraph(Clusters[j])
-                idxs = np.array(sorted(set(Clusters[i]) | set(Clusters[j])))
-                S = G.subgraph(idxs)
-                K[i][j] = len(S.es) - len(A.es) - len(B.es)
+        for I in range(NCommunity):
+            for J in range(I + 1, NCommunity):
+                A = G.subgraph(Clusters[I])
+                B = G.subgraph(Clusters[J])
+                Idxs = np.array(sorted(set(Clusters[I]) | set(Clusters[J])))
+                S = G.subgraph(Idxs)
+                K[I][J] = len(S.es) - len(A.es) - len(B.es)
 
         # Calculate modularity-based similarity (gamma)
-        gamma = np.zeros((NCommunity, NCommunity))
-        for i in range(NCommunity):
-            for j in range(i + 1, NCommunity):
-                if SumDegree[i] > 0 and SumDegree[j] > 0:
-                    gamma[i][j] = (len(G.es) * K[i][j]) / (SumDegree[i] * SumDegree[j])
+        Gamma = np.zeros((NCommunity, NCommunity))
+        for I in range(NCommunity):
+            for J in range(I + 1, NCommunity):
+                if SumDegree[I] > 0 and SumDegree[J] > 0:
+                    Gamma[I][J] = (len(G.es) * K[I][J]) / (SumDegree[I] * SumDegree[J])
         
-        M = np.max(gamma)
+        M = np.max(Gamma)
         TreeLevels.append(M)
         
         if M == 0:
             # No more beneficial merges, combine all remaining
             Classes = set()
-            for i in range(len(Clusters) - 1):
-                Classes = Classes | set(Clusters[i])
+            for I in range(len(Clusters) - 1):
+                Classes = Classes | set(Clusters[I])
             Clusters = [list(sorted(Classes)), Clusters[-1]]
             
             # Update nodes
@@ -144,26 +144,26 @@ def MergingTree(G, Partition):
             Labels = [Labels[0] + Labels[-1], Labels[-1]]
         else:
             # Find best pair to merge
-            idxDel = np.unravel_index(np.argmax(gamma), gamma.shape)
-            i1, i2 = idxDel[0], idxDel[1]
+            IdxDel = np.unravel_index(np.argmax(Gamma), Gamma.shape)
+            I1, I2 = IdxDel[0], IdxDel[1]
             
             # Create new merged cluster
-            idxs = set(np.arange(NCommunity)) - {i1, i2}
+            Idxs = set(np.arange(NCommunity)) - {I1, I2}
             Classes = []
             NodiNew = []
             LabelsNew = []
             
             # Add merged cluster
-            Classes.append(list(sorted(set(Clusters[i1]) | set(Clusters[i2]))))
-            NodiNew.append(Node(left=Nodi[i1], Right=Nodi[i2], 
-                                Data=Labels[i1] + Labels[i2]))
-            LabelsNew.append(Labels[i1] + Labels[i2])
+            Classes.append(list(sorted(set(Clusters[I1]) | set(Clusters[I2]))))
+            NodiNew.append(Node(left=Nodi[I1], Right=Nodi[I2], 
+                                Data=Labels[I1] + Labels[I2]))
+            LabelsNew.append(Labels[I1] + Labels[I2])
             
             # Add remaining Clusters
-            for i in sorted(idxs):
-                Classes.append(Clusters[i])
-                NodiNew.append(Nodi[i])
-                LabelsNew.append(Labels[i])
+            for I in sorted(Idxs):
+                Classes.append(Clusters[I])
+                NodiNew.append(Nodi[I])
+                LabelsNew.append(Labels[I])
             
             Clusters = Classes
             Nodi = NodiNew
@@ -171,14 +171,14 @@ def MergingTree(G, Partition):
     
     # Create final root node
     if len(Clusters) == 2:
-        root = Node(left=Nodi[0], Right=Nodi[1], Data=Labels[0] + Labels[1])
+        Root = Node(left=Nodi[0], Right=Nodi[1], Data=Labels[0] + Labels[1])
     else:
-        root = Nodi[0]
+        Root = Nodi[0]
     
     # Build NetworkX graph for visualization
-    GTree, Pos = BuildGraph(root)
+    GTree, Pos = BuildGraph(Root)
     
-    return root, GTree, Pos
+    return Root, GTree, Pos
 
 
 def VisualizeTree(GTree, Pos, Title="Merging Tree", Filename=None):
@@ -195,10 +195,10 @@ def VisualizeTree(GTree, Pos, Title="Merging Tree", Filename=None):
     Returns:
         None (displays and optionally saves plot)
     """
-    labels = nx.get_node_attributes(GTree, 'label')
+    Labels = nx.get_node_attributes(GTree, 'label')
     
     plt.figure(figsize=(12, 8))
-    nx.draw(GTree, Pos, labels=labels, with_labels=True, 
+    nx.draw(GTree, Pos, labels=Labels, with_labels=True, 
             node_size=2000, node_color='skyblue', font_size=10,
             arrows=True, arrowsize=20, edge_color='gray')
     plt.title(Title)

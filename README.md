@@ -7,13 +7,13 @@
 
 ## Main Modules
 
-- `brain_3d.brw_functions`: read BRW recordings, decode raw data, filter traces, detect peaks, and convert recordings to data frames.
-- `brain_3d.bxr_functions`: read BXR spike, burst, waveform, and false-positive outputs.
-- `brain_3d.spike_sorting`: spike detection, template extraction, template matching, cross-correlograms, and channel-level sorting helpers.
-- `brain_3d.stratification`: distance metrics, normalization, dimensionality reduction, hierarchical clustering, k-means, k-shape, Leiden clustering, and recursive clustering.
-- `brain_3d.FCM`: fuzzy C-means clustering.
-- `brain_3d.merging_tree`: community merging tree construction and visualization.
-- `brain_3d.gan_functions` and `brain_3d.vaegan_functions`: PyTorch model components and training utilities for signal synthesis.
+- `brain_3d.BrwFunctions`: read BRW recordings, decode raw data, filter traces, detect peaks, and convert recordings to data frames.
+- `brain_3d.BxrFunctions`: read BXR spike, burst, waveform, and false-positive outputs.
+- `brain_3d.SpikeSorting`: spike detection, template extraction, template matching, cross-correlograms, and channel-level sorting helpers.
+- `brain_3d.Stratification`: distance metrics, normalization, dimensionality reduction, hierarchical clustering, k-means, k-shape, Leiden clustering, and recursive clustering.
+- `brain_3d.Fcm`: fuzzy C-means clustering.
+- `brain_3d.MergingTree`: community merging tree construction and visualization.
+- `brain_3d.GanFunctions` and `brain_3d.VaeganFunctions`: PyTorch model components and training utilities for signal synthesis.
 
 ## Installation
 
@@ -25,7 +25,13 @@ cd 3D-BrAIn_codes
 python3 -m pip install -e .
 ```
 
-For development and documentation work:
+For documentation only:
+
+```bash
+python3 -m pip install -e ".[docs]"
+```
+
+For development work:
 
 ```bash
 python3 -m pip install -e ".[dev]"
@@ -47,12 +53,39 @@ python3 -m sphinx -b html source build/html
 
 Open `docs/build/html/index.html` after the build completes.
 
+## Docker
+
+Build the development image and open a shell:
+
+```bash
+docker compose build brain-3d
+docker compose run --rm brain-3d
+```
+
+Run Jupyter locally:
+
+```bash
+docker compose up jupyter
+```
+
+Open `http://127.0.0.1:8888` and use the default token `brain`, or set a custom token:
+
+```bash
+JUPYTER_TOKEN=my-token docker compose up jupyter
+```
+
+Build the Sphinx documentation in Docker:
+
+```bash
+docker compose run --rm docs
+```
+
 ## Repository Layout
 
 ```text
 src/brain_3d/       Package source code
 docs/source/        Sphinx documentation source
-requirements.txt    Runtime and documentation dependencies
+requirements.txt    Runtime dependencies
 environment.yml     Conda environment
 setup.py            Package metadata
 ```

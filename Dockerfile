@@ -1,50 +1,35 @@
-# Use official Python runtime as base image
-FROM python:3.10-slim-bullseye
+FROM python:3.10-slim
 
-# Set working directory in container
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    git \
-    wget \
-    curl \
     cmake \
-    libigraph-dev \
-    libopenblas-dev \
-    liblapack-dev \
+    curl \
     gfortran \
+    git \
+    libgomp1 \
+    libigraph-dev \
+    liblapack-dev \
+    libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
+COPY requirements.txt setup.py README.md LICENSE ./
+COPY src ./src
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir jupyter
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && python -m pip install -e ".[dev]" \
+    && python -m pip install notebook
 
-# Copy project code
-COPY . .
+RUN useradd --create-home --uid 1000 brainuser \
+    && chown -R brainuser:brainuser /app
 
-# Install the package
-RUN pip install --no-cache-dir -e .
-
-# Create non-root user for security
-RUN useradd -m -u 1000 brainuser && \
-    chown -R brainuser:brainuser /app
 USER brainuser
 
-# Expose Jupyter port (optional)
 EXPOSE 8888
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Default command
 CMD ["/bin/bash"]
-
-# For Jupyter notebook usage, uncomment:
-# CMD ["jupyter", "notebook", "--ip=0.0.0.0", "--no-browser", "--allow-root"]

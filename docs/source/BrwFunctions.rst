@@ -1,7 +1,7 @@
-spike\_sorting module
+brw\_functions module
 =====================
 
-.. automodule:: brain_3d.spike_sorting
+.. automodule:: brain_3d.BrwFunctions
    :members:
    :show-inheritance:
    :undoc-members:

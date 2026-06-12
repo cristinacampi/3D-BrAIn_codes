@@ -8,7 +8,7 @@ import h5py
 import pywt
 import math
 import scipy
-from . import bxr_functions
+from . import BxrFunctions
 import time
 from scipy.signal import find_peaks, butter, filtfilt, wiener, iirnotch
 from statistics import median
@@ -40,9 +40,9 @@ def ReadBRW(Filename, WellID):
         SamplingRate = BRW.attrs['SamplingRate']
         NumChannels = np.array(BRW[WellID + '/StoredChIdxs']).shape[0]
     except KeyError:
-        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
-        NumChannels = len(info['CorePlateData']['StoredPlateElIdxs']) 
+        Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
+        SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+        NumChannels = len(Info['CorePlateData']['StoredPlateElIdxs']) 
 
     Duration = NumFrames/SamplingRate
 
@@ -72,8 +72,8 @@ def DecodeEventBasedRawData(BRW, Data, WellID, StartTime=0, Duration=0.05):
     try:
         SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
-        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+        Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
+        SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
         
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate * (StartTime + Duration))
@@ -93,27 +93,27 @@ def DecodeEventBasedRawData(BRW, Data, WellID, StartTime=0, Duration=0.05):
     # decode all data for the given well ID and time interval
     BinaryData = BRW[WellID + '/EventsBasedSparseRaw'][EventsStartPosition:EventsEndPosition]
     BinaryDataLength = len(BinaryData)
-    pos = 0
-    while pos < BinaryDataLength:
-        ChIdx = int.from_bytes(BinaryData[pos:pos + 4], byteorder='little', signed=True)
-        pos += 4
-        ChDataLength = int.from_bytes(BinaryData[pos:pos + 4], byteorder='little', signed=True)
-        pos += 4
-        ChDataPos = pos
-        while pos < ChDataPos + ChDataLength:
-            FromInclusive = int.from_bytes(BinaryData[pos:pos + 8], byteorder='little', signed=True)
-            pos += 8
-            ToExclusive = int.from_bytes(BinaryData[pos:pos + 8], byteorder='little', signed=True)
-            pos += 8
-            RangeDataPos = pos
-            for j in range(FromInclusive, ToExclusive):
-                if j >= EndFrame:
+    Pos = 0
+    while Pos < BinaryDataLength:
+        ChIdx = int.from_bytes(BinaryData[Pos:Pos + 4], byteorder='little', signed=True)
+        Pos += 4
+        ChDataLength = int.from_bytes(BinaryData[Pos:Pos + 4], byteorder='little', signed=True)
+        Pos += 4
+        ChDataPos = Pos
+        while Pos < ChDataPos + ChDataLength:
+            FromInclusive = int.from_bytes(BinaryData[Pos:Pos + 8], byteorder='little', signed=True)
+            Pos += 8
+            ToExclusive = int.from_bytes(BinaryData[Pos:Pos + 8], byteorder='little', signed=True)
+            Pos += 8
+            RangeDataPos = Pos
+            for J in range(FromInclusive, ToExclusive):
+                if J >= EndFrame:
                     break
-                if j >= StartFrame:
-                    data[ChIdx][j - StartFrame] = int.from_bytes(BinaryData[RangeDataPos:RangeDataPos + 2], byteorder='little', signed=True)
+                if J >= StartFrame:
+                    data[ChIdx][J - StartFrame] = int.from_bytes(BinaryData[RangeDataPos:RangeDataPos + 2], byteorder='little', signed=True)
 
                 RangeDataPos += 2
-            pos += (ToExclusive - FromInclusive) * 2
+            Pos += (ToExclusive - FromInclusive) * 2
 
     return Data 
 
@@ -135,8 +135,8 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
     try:
         SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
-        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+        Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
+        SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
         
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate *(StartTime+Duration))
@@ -147,11 +147,11 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
         MinAnalogValue = BRW.attrs['MinAnalogValue']
         MaxAnalogValue = BRW.attrs['MaxAnalogValue']
     except KeyError:
-        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        MinDigitalValue = info['SignalConverter']['DigitalToAnalogConverter']['MinDigitalValue']        
-        MaxDigitalValue = info['SignalConverter']['DigitalToAnalogConverter']['MaxDigitalValue']        
-        MinAnalogValue  = info['SignalConverter']['DigitalToAnalogConverter']['MinAnalogValueMicroVolt'] 
-        MaxAnalogValue  = info['SignalConverter']['DigitalToAnalogConverter']['MaxAnalogValueMicroVolt'] 
+        Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
+        MinDigitalValue = Info['SignalConverter']['DigitalToAnalogConverter']['MinDigitalValue']        
+        MaxDigitalValue = Info['SignalConverter']['DigitalToAnalogConverter']['MaxDigitalValue']        
+        MinAnalogValue  = Info['SignalConverter']['DigitalToAnalogConverter']['MinAnalogValueMicroVolt'] 
+        MaxAnalogValue  = Info['SignalConverter']['DigitalToAnalogConverter']['MaxAnalogValueMicroVolt'] 
     DacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
     OffsetValue = MinAnalogValue - DacFactor * MinDigitalValue
 
@@ -162,8 +162,8 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
     try:
         ChIdxs = np.array(BRW[WellID + '/StoredChIdxs'])
     except KeyError:
-        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        ChIdxs = np.array(info['CorePlateData']['StoredPlateElIdxs'])
+        Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
+        ChIdxs = np.array(Info['CorePlateData']['StoredPlateElIdxs'])
     ChIdxs.sort()#
     NCh = len(ChIdxs)#
     NumChannels = ChIdxs.shape[0]
@@ -174,15 +174,15 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
             DataDict[ChIdx] = np.zeros(EndFrame-StartFrame, dtype=np.int16) 
         DataDict = DecodeEventBasedRawData(BRW, DataDict, WellID, StartTime, Duration)
 
-        data = np.zeros((EndFrame-StartFrame, NCh))
-        for d in range(NCh):
-            data[:, d] = np.array(DataDict[ChIdxs[d]], dtype=float)
+        Data = np.zeros((EndFrame-StartFrame, NCh))
+        for D in range(NCh):
+            Data[:, D] = np.array(DataDict[ChIdxs[D]], dtype=float)
 
 
     elif 'Raw' in BRW[WellID]:
         AuxData = BRW[WellID + '/Raw'] 
         AuxData = AuxData[StartFrame*NumChannels:EndFrame*NumChannels]
-        data = np.reshape(AuxData, (EndFrame-StartFrame, NumChannels))
+        Data = np.reshape(AuxData, (EndFrame-StartFrame, NumChannels))
 
     elif 'WaveletBasedEncodedRaw' in BRW[WellID]: 
         CoefsTotalLength = len(BRW[WellID + '/WaveletBasedEncodedRaw'])
@@ -190,31 +190,31 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
         FramesChunkLength = BRW[WellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
         CoefsChunkLength = math.ceil(FramesChunkLength/pow(2, CompressionLevel))*2
         for ChIdx in ChIdxs:
-            t = time.time()
-            data = []
-            coefsPosition = ChIdx * CoefsChunkLength
-            while coefsPosition < CoefsTotalLength:
-                coefs = BRW[WellID + '/WaveletBasedEncodedRaw'][coefsPosition:coefsPosition+CoefsChunkLength]
-                length = int(len(coefs)/2)
-                frames = pywt.idwt(coefs[:length], coefs[length:], 'sym7', 'periodization') 
-                length *= 2
-                for i in range(1, CompressionLevel):
-                    frames = pywt.idwt(frames[:length], None, 'sym7', 'periodization')
-                    length *= 2
-                data.extend(frames)
-                coefsPosition += CoefsChunkLength * NumChannels
-            print(time.time()-t)  
+            T = time.time()
+            Data = []
+            CoefsPosition = ChIdx * CoefsChunkLength
+            while CoefsPosition < CoefsTotalLength:
+                Coefs = BRW[WellID + '/WaveletBasedEncodedRaw'][CoefsPosition:CoefsPosition+CoefsChunkLength]
+                Length = int(len(Coefs)/2)
+                Frames = pywt.idwt(Coefs[:Length], Coefs[Length:], 'sym7', 'periodization') 
+                Length *= 2
+                for I in range(1, CompressionLevel):
+                    Frames = pywt.idwt(Frames[:Length], None, 'sym7', 'periodization')
+                    Length *= 2
+                Data.extend(Frames)
+                CoefsPosition += CoefsChunkLength * NumChannels
+            print(time.time()-T)  
         BRW.close()
 
     Step = int(SamplingRate/DownsamplingFrequency)
 
     Frames2Save = np.arange(0, EndFrame-StartFrame, Step)
-    AuxData = np.empty((len(Frames2Save), data.shape[1]))
-    for f in np.arange(len(Frames2Save)):
-        if int(Frames2Save[f]) == EndFrame-StartFrame:
-            AuxData[f, :] = data[int(Frames2Save[f])-1, :]
+    AuxData = np.empty((len(Frames2Save), Data.shape[1]))
+    for F in np.arange(len(Frames2Save)):
+        if int(Frames2Save[F]) == EndFrame-StartFrame:
+            AuxData[F, :] = Data[int(Frames2Save[F])-1, :]
         else:
-            AuxData[f, :] = data[int(Frames2Save[f]),:]
+            AuxData[F, :] = Data[int(Frames2Save[F]),:]
 
     Frames2Save = np.array(Frames2Save, dtype = int)
 
@@ -245,8 +245,8 @@ def ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime
     try:
         NumChannels = np.array(BRW[WellID + '/StoredChIdxs']).shape[0]
     except KeyError:
-        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        NumChannels = len(info['CorePlateData']['StoredPlateElIdxs']) 
+        Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
+        NumChannels = len(Info['CorePlateData']['StoredPlateElIdxs']) 
     AuxData = Data[:,row*NumChannels+col]
 
     return AuxData, Frames2Save
@@ -268,18 +268,18 @@ def PlotRawData(BRW, WellID, title, DownsamplingFrequency, row, col, StartTime=0
     try:
         SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
-        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+        Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
+        SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
    
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate *(StartTime+Duration))
    
-    y, Frames2Save = ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime, Duration)
-    x = Frames2Save/SamplingRate
-    y = np.transpose(y)
+    Y, Frames2Save = ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime, Duration)
+    X = Frames2Save/SamplingRate
+    Y = np.transpose(Y)
 
     plt.figure()
-    plt.plot(x, y, color="blue")
+    plt.plot(X, Y, color="blue")
     plt.title('Raw Signal of the channel '+ str(row*64 + col) +', time interval = ['+str(round(StartFrame/SamplingRate*100)/100)+', '+str(round(EndFrame/SamplingRate*100)/100)+']')
     plt.xlabel('(sec)')
     plt.ylabel('(uV)')
@@ -304,10 +304,10 @@ def SingleChannelFramesWithPeaks(BRW, WellID, DownsamplingFrequency, row, col, S
     Returns:
         FramesWithPeaks (np.ndarray): array that contains the frames of the peaks.
     """
-    y, Frames2Save = ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime, Duration)
-    y = np.transpose(y)
-    peaks = scipy.signal.find_peaks(y, threshold=Threshold)
-    FramesWithPeaks = Frames2Save[peaks[0]]
+    Y, Frames2Save = ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime, Duration)
+    Y = np.transpose(Y)
+    Peaks = scipy.signal.find_peaks(Y, threshold=Threshold)
+    FramesWithPeaks = Frames2Save[Peaks[0]]
     return FramesWithPeaks
 
 def FramesWithPeaks(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05, Percentage = 0, Threshold=0):
@@ -334,19 +334,19 @@ def FramesWithPeaks(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration 
     NumFrames2Save = len(Frames2Save)
     MatrixPeaks = np.zeros((NumFrames2Save, NumChannels))
 
-    for ch in range(NumChannels):
-        IndexPeaks = scipy.signal.find_peaks(Data[:,ch], threshold=Threshold)
-        MatrixPeaks[IndexPeaks[0], ch] = 1
+    for Ch in range(NumChannels):
+        IndexPeaks = scipy.signal.find_peaks(Data[:,Ch], threshold=Threshold)
+        MatrixPeaks[IndexPeaks[0], Ch] = 1
 
     NumPeaks = np.sum(MatrixPeaks, axis = 1)
     FramesOverPerc = []
     FramesUnderPerc = []
     PC = Percentage*NumChannels
-    for t in range(NumFrames2Save):
-        if NumPeaks[t]>=PC:
-            FramesOverPerc.append(NumPeaks[t])
+    for T in range(NumFrames2Save):
+        if NumPeaks[T]>=PC:
+            FramesOverPerc.append(NumPeaks[T])
         else:
-            FramesUnderPerc.append(NumPeaks[t])
+            FramesUnderPerc.append(NumPeaks[T])
     
     return  MatrixPeaks, FramesUnderPerc, FramesOverPerc
 
@@ -372,14 +372,14 @@ def BRW2df(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
     Data, Frames2Save = ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime, Duration)
 
     ListAL = []
-    for it in np.arange(Data.shape[0]):
-        aux = Data[it,:]
-        TuplaAL = (int(Frames2Save[it]), aux)
+    for It in np.arange(Data.shape[0]):
+        Aux = Data[It,:]
+        TuplaAL = (int(Frames2Save[It]), Aux)
         ListAL.append(TuplaAL)
 
     ListXY  = []
-    for it in np.arange(1,Dim1+1):
-        TuplaXY = (it, np.arange(1,Dim2+1))
+    for It in np.arange(1,Dim1+1):
+        TuplaXY = (It, np.arange(1,Dim2+1))
         ListXY.append(TuplaXY)
 
     DfXY = pd.DataFrame(ListXY, columns=["X", "Y"])
@@ -405,16 +405,16 @@ def SpikesActivityLevel(BRW, bxr, WellID, DownsamplingFrequency, StartTime = 0, 
     try:
         SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
-        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+        Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
+        SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
     StartFrame = int(SamplingRate * StartTime)
-    SpikeFrames, SpikeChannels = bxr_functions.Spikes2Df(bxr, WellID, StartTime, Duration)
+    SpikeFrames, SpikeChannels = BxrFunctions.Spikes2Df(bxr, WellID, StartTime, Duration)
     Data, Frames2Save = ReadingRawData(BRW, WellID, SamplingRate, StartTime, Duration)
-    spikesAL = np.zeros((Data.shape[0],Data.shape[1]))
-    for i in range(len(SpikeFrames)):
-        print('Spike at frame '+str(SpikeFrames[i])+', channel number '+str(SpikeChannels[i]+1))
-        spikesAL[SpikeFrames[i]-StartFrame-1][SpikeChannels[i]] = Data[SpikeFrames[i]-StartFrame-1][SpikeChannels[i]] 
-    return spikesAL  
+    SpikesAL = np.zeros((Data.shape[0],Data.shape[1]))
+    for I in range(len(SpikeFrames)):
+        print('Spike at frame '+str(SpikeFrames[I])+', channel number '+str(SpikeChannels[I]+1))
+        SpikesAL[SpikeFrames[I]-StartFrame-1][SpikeChannels[I]] = Data[SpikeFrames[I]-StartFrame-1][SpikeChannels[I]] 
+    return SpikesAL  
 
 def BandpassFilter(Data, Lowcut, Highcut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
@@ -431,10 +431,10 @@ def BandpassFilter(Data, Lowcut, Highcut, SamplingRate, nfilter=3, PercSamplingR
     Returns:
         float: the filtered signal.
     """
-    b,a = butter(nfilter, [Lowcut/(PercSamplingRate*SamplingRate), Highcut/(PercSamplingRate *SamplingRate)], btype = 'band' )
-    filtered = filtfilt(b, a, Data)
+    B,A = butter(nfilter, [Lowcut/(PercSamplingRate*SamplingRate), Highcut/(PercSamplingRate *SamplingRate)], btype = 'band' )
+    Filtered = filtfilt(B, A, Data)
 
-    return filtered
+    return Filtered
 
 def HighpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
@@ -450,10 +450,10 @@ def HighpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     Returns:
         float: the filtered signal.
     """
-    b, a = butter(nfilter, Cut / (PercSamplingRate*SamplingRate), btype='high')
-    filtered = filtfilt(b, a, Data)
+    B, A = butter(nfilter, Cut / (PercSamplingRate*SamplingRate), btype='high')
+    Filtered = filtfilt(B, A, Data)
 
-    return filtered
+    return Filtered
 
 def NotchFilter(Data, Cut, SamplingRate, qf=3):
     """
@@ -468,10 +468,10 @@ def NotchFilter(Data, Cut, SamplingRate, qf=3):
     Returns:
         float: the filtered signal.
     """
-    b, a = iirnotch(Cut, qf, SamplingRate)
-    filtered = filtfilt(b, a, Data)
+    B, A = iirnotch(Cut, qf, SamplingRate)
+    Filtered = filtfilt(B, A, Data)
 
-    return filtered
+    return Filtered
 
 def LowpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
@@ -487,10 +487,10 @@ def LowpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     Returns:
         float: the filtered signal.
     """
-    b, a = butter(nfilter, Cut / (PercSamplingRate*SamplingRate), btype='low')
-    filtered = filtfilt(b, a, Data)
+    B, A = butter(nfilter, Cut / (PercSamplingRate*SamplingRate), btype='low')
+    Filtered = filtfilt(B, A, Data)
 
-    return filtered
+    return Filtered
 
 def CommonAverageReference(Data):
     """
@@ -502,10 +502,10 @@ def CommonAverageReference(Data):
     Returns:
         float: the transformed signal.
     """
-    median = np.median(Data, 1)
-    Data = (Data.T - median).T
-    mu = np.mean(Data,0)
-    Data = Data - mu
+    Median = np.median(Data, 1)
+    Data = (Data.T - Median).T
+    Mu = np.mean(Data,0)
+    Data = Data - Mu
     
     return Data
 
@@ -519,9 +519,9 @@ def WienerFilter(Data):
     Returns:
         float: the filtered signal.
     """
-    data = wiener(data)
+    Data = wiener(Data)
 
-    return data
+    return Data
 
 def PercentileFilter(Data, percentile):
     """
@@ -538,9 +538,9 @@ def PercentileFilter(Data, percentile):
     Magnitude = np.abs(Spectrum)
     Threshold = np.percentile(Magnitude, percentile)
     Spectrum[Magnitude < Threshold] = 0
-    filtered = np.fft.ifft(Spectrum)
+    Filtered = np.fft.ifft(Spectrum)
 
-    return filtered 
+    return Filtered 
 
 def PlotlyGraph(Data, ch):
     """
@@ -553,6 +553,6 @@ def PlotlyGraph(Data, ch):
     Returns:
         None: Generates an HTML file named 'Graph_channel_<ch>.html'.
     """
-    df = pd.DataFrame({'x_axis': np.arange(Data.shape[0]), 'y_axis': Data[:,ch] })
-    fig = px.line(df, x='x_axis', y='y_axis', title='Channel '+str(ch))
-    fig.write_html('Graph_channel_'+str(ch)+'.html')   
+    Df = pd.DataFrame({'x_axis': np.arange(Data.shape[0]), 'y_axis': Data[:,ch] })
+    Fig = px.line(Df, x='x_axis', y='y_axis', title='Channel '+str(ch))
+    Fig.write_html('Graph_channel_'+str(ch)+'.html')   

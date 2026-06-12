@@ -80,9 +80,9 @@ class VAEEncoder(nn.Module):
         Returns:
             Tensor: Sampled latent vector of shape [seq_len, batch_size, latent_dim].
         """
-        std = torch.exp(0.5 * logvar)  
-        eps = torch.randn_like(std)
-        return mu + eps * std
+        Std = torch.exp(0.5 * logvar)  
+        Eps = torch.randn_like(Std)
+        return mu + Eps * Std
 
     def forward(self, x):
         """Forward pass through encoder.
@@ -101,8 +101,8 @@ class VAEEncoder(nn.Module):
         x = self.positional_encoding(x)
         
         # Apply transformer blocks with residual connections
-        for block in self.transformer_blocks:
-            x = block(x) + x
+        for Block in self.transformer_blocks:
+            x = Block(x) + x
            
         # Prepare for convolution [batch_size, emb_dim, seq_len]
         x = x.permute(1, 2, 0)
@@ -111,13 +111,13 @@ class VAEEncoder(nn.Module):
         # Permute back and extract mu/logvar [seq_len, batch_size, 128]
         x = x.permute(2, 0, 1)
 
-        mu = self.mu_layer(x)
-        logvar = self.logvar_layer(x)
+        Mu = self.mu_layer(x)
+        Logvar = self.logvar_layer(x)
         
-        z = self.Reparameterize(mu, logvar)
-        z = z.permute(1, 0, 2)  # [batch_size, seq_len, latent_dim]
+        Z = self.Reparameterize(Mu, Logvar)
+        Z = Z.permute(1, 0, 2)  # [batch_size, seq_len, latent_dim]
         
-        return z, mu, logvar
+        return Z, Mu, Logvar
 
 
 class LinearConvDecoder(nn.Module):
@@ -212,8 +212,8 @@ class LinearConvDecoder(nn.Module):
         x = x.permute(1, 0, 2)   # [seq_len, batch_size, emb_dim]
         x = self.positional_encoding(x)
         
-        for block in self.transformer_blocks:
-            x = block(x) + x
+        for Block in self.transformer_blocks:
+            x = Block(x) + x
         
         x = x.permute(1, 2, 0)  # [batch_size, emb_dim, seq_len]
         x = self.conv_block(x)  # [batch_size, 1, seq_len]
@@ -240,25 +240,25 @@ class PositionalEncoding(nn.Module):
         self.seq_len = seq_len
 
         # Initialize positional encoding tensor [seq_len, emb_dim]
-        pe = torch.zeros(seq_len, emb_dim)  
+        Pe = torch.zeros(seq_len, emb_dim)  
         
         # Generate position indices [seq_len, 1]
-        position = torch.arange(seq_len).unsqueeze(1)  
+        Position = torch.arange(seq_len).unsqueeze(1)  
         
         # Compute scaling term for sinusoidal frequencies 
-        div_term = torch.exp(torch.arange(0, emb_dim, 2) * (-math.log(10000.0) / emb_dim))
+        DivTerm = torch.exp(torch.arange(0, emb_dim, 2) * (-math.log(10000.0) / emb_dim))
         
         # Apply sine to even indices and cosine to odd indices
-        pe[:, 0::2] = torch.sin(position * div_term)
+        Pe[:, 0::2] = torch.sin(Position * DivTerm)
         
         # Handle odd embedding dimension
         if emb_dim % 2 != 0:
-            pe[:, 1::2] = torch.cos(position * div_term[:-1])
+            Pe[:, 1::2] = torch.cos(Position * DivTerm[:-1])
         else:
-            pe[:, 1::2] = torch.cos(position * div_term)
+            Pe[:, 1::2] = torch.cos(Position * DivTerm)
         
         # Register as buffer (not a parameter, won't be updated during training)
-        self.register_buffer('pe', pe)
+        self.register_buffer('pe', Pe)
 
     def forward(self, x):
         """Add positional encodings to input signal.
@@ -269,8 +269,8 @@ class PositionalEncoding(nn.Module):
         Returns:
             Tensor: Signal with positional encodings added, same shape as input.
         """
-        pe = self.pe[:self.seq_len, :].unsqueeze(1).repeat(1, x.size(1), 1)
-        return x + pe
+        Pe = self.pe[:self.seq_len, :].unsqueeze(1).repeat(1, x.size(1), 1)
+        return x + Pe
 
 
 class TransformerEncoderBlock(nn.Module):
@@ -321,14 +321,14 @@ class TransformerEncoderBlock(nn.Module):
             Tensor: Output tensor of shape [seq_len, batch_size, emb_dim].
         """
         # Attention with pre-normalization
-        x_norm = self.norm_before_attn(x)
-        attn_output, _ = self.attention(x_norm, x_norm, x_norm)
-        x = x + self.dropout1(attn_output)
+        XNorm = self.norm_before_attn(x)
+        AttnOutput, _ = self.attention(XNorm, XNorm, XNorm)
+        x = x + self.dropout1(AttnOutput)
         
         # FFN with pre-normalization
-        x_norm = self.norm_before_ffn(x)
-        ffn_output = self.ffn(x_norm)
-        x = x + self.dropout2(ffn_output)
+        XNorm = self.norm_before_ffn(x)
+        FfnOutput = self.ffn(XNorm)
+        x = x + self.dropout2(FfnOutput)
         
         return self.norm2(x)
 
@@ -375,12 +375,12 @@ class TransformerDecoderBlock(nn.Module):
         Returns:
             Tensor: Output tensor of shape [seq_len, batch_size, emb_dim].
         """
-        x_norm = self.norm_before_attn(x)
-        attn_out, _ = self.attn(x_norm, x_norm, x_norm)
-        x = x + self.dropout(attn_out)
+        XNorm = self.norm_before_attn(x)
+        AttnOut, _ = self.attn(XNorm, XNorm, XNorm)
+        x = x + self.dropout(AttnOut)
         
-        x_norm = self.norm1(x)
-        ff_out = self.ff(x_norm)
-        x = x + ff_out
+        XNorm = self.norm1(x)
+        FfOut = self.ff(XNorm)
+        x = x + FfOut
         
         return self.norm2(x)

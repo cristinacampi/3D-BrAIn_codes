@@ -7,7 +7,7 @@ import matplotlib.colors as mcolors
 import pandas as pd
 import h5py
 import time
-from . import brw_functions as brw_f
+from . import BrwFunctions as brw_f
 import json
 
 def ReadBXR(Filename, WellID):
@@ -30,8 +30,8 @@ def ReadBXR(Filename, WellID):
     """    
     BXR = h5py.File(Filename)
 
-    toc = np.array(BXR['TOC'])
-    NumFrames = toc[toc.shape[0]-1,1]
+    Toc = np.array(BXR['TOC'])
+    NumFrames = Toc[Toc.shape[0]-1,1]
     SamplingRate = BXR.attrs['SamplingRate']
     NumChannels = np.array(BXR[WellID + '/StoredChIdxs']).shape[0]
     Duration = NumFrames/SamplingRate
@@ -105,9 +105,9 @@ def CleanSpikes(BXR, WellID, PercentageChannels):
     SpikesUpper = []
     NumChannels = np.array(BXR[WellID + '/StoredChIdxs']).shape[0]
     Threshold = round(PercentageChannels*NumChannels/100)
-    for t in DifferentFrame:
-        Index = np.where(SpikeFrames == t)[0]
-        Tupla = (t, SpikeChannels[Index])
+    for T in DifferentFrame:
+        Index = np.where(SpikeFrames == T)[0]
+        Tupla = (T, SpikeChannels[Index])
         if len(Tupla[1]) < Threshold:
             SpikesLower.append(Tupla)
         else:
@@ -173,31 +173,31 @@ def Burst2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
     NumFrames = ConversionTimeToFrames(BXR, Duration)
     EndFrame = StartFrame+NumFrames
 
-    cont = 0
-    i = 0
-    while cont == 0:
-        if (StartFrame > BurstFrames[i][0]) & (StartFrame > BurstFrames[i][1]):
-            i += 1
+    Cont = 0
+    I = 0
+    while Cont == 0:
+        if (StartFrame > BurstFrames[I][0]) & (StartFrame > BurstFrames[I][1]):
+            I += 1
         else:
-            cont +=1
+            Cont +=1
     
-    cont = 0
-    j = 0
-    while cont == 0:
-        if (EndFrame > BurstFrames[j][1]) & (EndFrame > BurstFrames[j+1][0]):
-            j += 1
+    Cont = 0
+    J = 0
+    while Cont == 0:
+        if (EndFrame > BurstFrames[J][1]) & (EndFrame > BurstFrames[J+1][0]):
+            J += 1
         else:
-            cont +=1
+            Cont +=1
     
-    if (EndFrame <= BurstFrames[0][0]) or (j-i) <0 :
+    if (EndFrame <= BurstFrames[0][0]) or (J-I) <0 :
         BurstFrames = []
         BurstChannels = []
-    elif j-i == 0:
-        BurstFrames = BurstFrames[i]
-        BurstChannels = BurstChannels[i]
+    elif J-I == 0:
+        BurstFrames = BurstFrames[I]
+        BurstChannels = BurstChannels[I]
     else:
-        BurstFrames = BurstFrames[i : j+1]
-        BurstChannels = BurstChannels[i : j+1]
+        BurstFrames = BurstFrames[I : J+1]
+        BurstChannels = BurstChannels[I : J+1]
     return BurstFrames, BurstChannels
 
 def BurstPlot(BXR, WellID, StartTime=0, Duration=0.01):
@@ -237,16 +237,16 @@ def BurstPlot(BXR, WellID, StartTime=0, Duration=0.01):
         BurstTimesExtended = []
         if len(BurstFrames)==1:
             for It in np.arange(len(BurstFrames)):
-                f1 = BurstFrames[0]
-                f2 = BurstFrames[1]
-                BurstTimesExtended.append(np.arange(f1,f2+1)/SamplingRate)
+                F1 = BurstFrames[0]
+                F2 = BurstFrames[1]
+                BurstTimesExtended.append(np.arange(F1,F2+1)/SamplingRate)
         else: 
             for It in np.arange(len(BurstFrames)):
-                f1 = BurstFrames[It, 0]
-                f2 = BurstFrames[It, 1]
-                BurstTimesExtended.append(np.arange(f1,f2+1)/SamplingRate)
+                F1 = BurstFrames[It, 0]
+                F2 = BurstFrames[It, 1]
+                BurstTimesExtended.append(np.arange(F1,F2+1)/SamplingRate)
         NumChannels = np.array(BXR[WellID + '/StoredChIdxs']).shape[0]
-        count = 0
+        Count = 0
         Data = []
         for It in np.arange(NumChannels):
             Aux = np.where(BurstChannels == It)
@@ -256,17 +256,17 @@ def BurstPlot(BXR, WellID, StartTime=0, Duration=0.01):
                     AuxList = BurstTimesExtended[Aux[0][ItAux]]
                     Tt = np.concatenate((Tt,AuxList))
                 Data.append(Tt)
-                count = count+1
+                Count = Count+1
             #else:
             #    Data.append([])
-        colors1 = ['C{}'.format(i) for i in range(count)]
-        fig, ax = plt.subplots()
-        plt.eventplot(Data, colors=colors1)
+        Colors1 = ['C{}'.format(I) for I in range(Count)]
+        Fig, Ax = plt.subplots()
+        plt.eventplot(Data, colors=Colors1)
         plt.title('Burst Plot, Time interval = ['+str(StartTime)+', '+str(StartTime+Duration)+']')
         plt.xlabel('(sec)')
         plt.ylabel('(channels)')
-        plt.yticks(np.arange(count))
-        ax.set_yticklabels(BurstChannelsUnique)
+        plt.yticks(np.arange(Count))
+        Ax.set_yticklabels(BurstChannelsUnique)
         plt.show()
 
 def WaveformsPlot(BXR, WellID, StartTime=0, Duration=0.01, ChIdx=0):
@@ -287,23 +287,23 @@ def WaveformsPlot(BXR, WellID, StartTime=0, Duration=0.01, ChIdx=0):
     #number of Frames considered
     NumFrames = ConversionTimeToFrames(BXR, Duration)   
     # collect the TOCs
-    toc = np.array(BXR['TOC'])
-    spikeToc = np.array(BXR[WellID + '/SpikeTOC'])
+    Toc = np.array(BXR['TOC'])
+    SpikeToc = np.array(BXR[WellID + '/SpikeTOC'])
 
     # collect experiment information
     MinDigitalValue = BXR.attrs['MinDigitalValue']
     MaxDigitalValue = BXR.attrs['MaxDigitalValue']
     MinAnalogValue = BXR.attrs['MinAnalogValue']
     MaxAnalogValue = BXR.attrs['MaxAnalogValue']
-    dacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
-    OffsetValue = MinAnalogValue - dacFactor * MinDigitalValue
+    DacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
+    OffsetValue = MinAnalogValue - DacFactor * MinDigitalValue
     SamplingRate = BXR.attrs['SamplingRate']
 
     # from the given start position and duration (in Frames), find the corresponding range of spike positions using the TOC
-    TocStartIdx = np.searchsorted(toc[:, 1], StartFrame)
-    TocEndIdx = min(np.searchsorted(toc[:, 1], StartFrame + NumFrames, side='right') + 1, len(toc) - 1)
-    SpikeStartPosition = spikeToc[TocStartIdx]
-    SpikeEndPosition = spikeToc[TocEndIdx]
+    TocStartIdx = np.searchsorted(Toc[:, 1], StartFrame)
+    TocEndIdx = min(np.searchsorted(Toc[:, 1], StartFrame + NumFrames, side='right') + 1, len(Toc) - 1)
+    SpikeStartPosition = SpikeToc[TocStartIdx]
+    SpikeEndPosition = SpikeToc[TocEndIdx]
 
     # collect the required spike Data
     SpikeDataTimestamps = BXR[WellID + '/SpikeTimes'][SpikeStartPosition:SpikeEndPosition]
@@ -319,17 +319,17 @@ def WaveformsPlot(BXR, WellID, StartTime=0, Duration=0.01, ChIdx=0):
 
     # collect the waveforms for the given time range and channel Index
     WaveformData = {} if SpikeSortingPerformed else []
-    ts = []
-    for i in range(0, DataLength):
-        if SpikeDataChIdxs[i] == ChIdx and StartFrame <= SpikeDataTimestamps[i] < StartFrame + NumFrames:
-            ts.append(SpikeDataTimestamps[i])
+    Ts = []
+    for I in range(0, DataLength):
+        if SpikeDataChIdxs[I] == ChIdx and StartFrame <= SpikeDataTimestamps[I] < StartFrame + NumFrames:
+            Ts.append(SpikeDataTimestamps[I])
             if SpikeSortingPerformed:
-                spikeUnit = SpikeDataChUnits[i]
-                if spikeUnit not in WaveformData.keys():
-                    WaveformData[spikeUnit] = []
-                WaveformData[spikeUnit].append(SpikeDataWaveforms[i*WaveformLength:i*WaveformLength+WaveformLength])
+                SpikeUnit = SpikeDataChUnits[I]
+                if SpikeUnit not in WaveformData.keys():
+                    WaveformData[SpikeUnit] = []
+                WaveformData[SpikeUnit].append(SpikeDataWaveforms[I*WaveformLength:I*WaveformLength+WaveformLength])
             else:
-                WaveformData.append(SpikeDataWaveforms[i*WaveformLength:i*WaveformLength+WaveformLength])
+                WaveformData.append(SpikeDataWaveforms[I*WaveformLength:I*WaveformLength+WaveformLength])
     
     # visualize waveforms for the given channel Index, if spike sorting was performed,
     # units will be plotted with different colors
@@ -338,24 +338,24 @@ def WaveformsPlot(BXR, WellID, StartTime=0, Duration=0.01, ChIdx=0):
 
     else:
         plt.figure()
-        x = np.arange(0, WaveformLength, 1) / SamplingRate
+        X = np.arange(0, WaveformLength, 1) / SamplingRate
 
         if SpikeSortingPerformed:
-            colors = list(mcolors.BASE_COLORS.keys())
-            c = 0
-            for unit in WaveformData:
-                for waveform in WaveformData[unit]:
+            Colors = list(mcolors.BASE_COLORS.keys())
+            C = 0
+            for Unit in WaveformData:
+                for Waveform in WaveformData[Unit]:
                     # convert the waveform to analog
-                    y = OffsetValue + dacFactor * waveform
-                    plt.plot(x, y, color=colors[c])
-                c += 1
+                    Y = OffsetValue + DacFactor * Waveform
+                    plt.plot(X, Y, color=Colors[C])
+                C += 1
         else:
-            for waveform in WaveformData:
+            for Waveform in WaveformData:
                 # convert the waveform to analog
-                y = OffsetValue + dacFactor * waveform
-                plt.plot(x, y, color='blue')
+                Y = OffsetValue + DacFactor * Waveform
+                plt.plot(X, Y, color='blue')
 
-        plt.title('Spike waveforms = '+str(len(ts))+', channel = '+ str(ChIdx+1)+', '+'Time interval=['+str(StartTime)+', '+str(StartTime+Duration)+']')
+        plt.title('Spike waveforms = '+str(len(Ts))+', channel = '+ str(ChIdx+1)+', '+'Time interval=['+str(StartTime)+', '+str(StartTime+Duration)+']')
         plt.xlabel('(sec)')
         plt.ylabel('(uV)')
         plt.legend()
@@ -404,8 +404,8 @@ def FPFormPlot(BXR, WellID, StartTime=0, Duration=0.05, ChIdx=0):
     MaxDigitalValue = BXR.attrs['MaxDigitalValue']
     MinAnalogValue = BXR.attrs['MinAnalogValue']
     MaxAnalogValue = BXR.attrs['MaxAnalogValue']
-    dacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
-    OffsetValue = MinAnalogValue - dacFactor * MinDigitalValue
+    DacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
+    OffsetValue = MinAnalogValue - DacFactor * MinDigitalValue
     SamplingRate = BXR.attrs['SamplingRate']
     FPForms = np.array(BXR[WellID+'/FpForms'])
     FPformLength = BXR[WellID + '/FpForms'].attrs['Wavelength']
@@ -427,13 +427,13 @@ def FPFormPlot(BXR, WellID, StartTime=0, Duration=0.05, ChIdx=0):
         Index = np.where(FPChannels[FirstIndex:SecondIndex+1]==ChIdx)[0]
     if len(Index)>0:    
         plt.figure()
-        x = np.arange(0, FPformLength, 1)/SamplingRate
-        colors = list(mcolors.XKCD_COLORS.keys())
-        c = 0
-        for i in Index:
-            y = OffsetValue + dacFactor * FPForms[i:i + FPformLength]
-            plt.plot(x, y, color=colors[c])
-            c += 1
+        X = np.arange(0, FPformLength, 1)/SamplingRate
+        Colors = list(mcolors.XKCD_COLORS.keys())
+        C = 0
+        for I in Index:
+            Y = OffsetValue + DacFactor * FPForms[I:I + FPformLength]
+            plt.plot(X, Y, color=Colors[C])
+            C += 1
         
         plt.title('FPforms = ' +str(len(Index))+ ', channel = '+ str(ChIdx+1)+', Time interval = ['+str(StartTime)+', '+str(StartTime+Duration)+']')
         plt.xlabel('(sec)')

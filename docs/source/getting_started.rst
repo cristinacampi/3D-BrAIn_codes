@@ -5,9 +5,9 @@ Import the module that matches the workflow you are running:
 
 .. code-block:: python
 
-   from brain_3d import brw_functions as brw
-   from brain_3d import bxr_functions as bxr
-   from brain_3d import stratification
+   from brain_3d import BrwFunctions as brw
+   from brain_3d import BxrFunctions as bxr
+   from brain_3d import Stratification
 
 Read recording and analysis files:
 
@@ -20,7 +20,7 @@ Cluster extracted waveforms or feature matrices:
 
 .. code-block:: python
 
-   clusters = stratification.Clustering(
+   clusters = Stratification.Clustering(
        Data,
        Algo="KM",
        DistanceStr="m",
@@ -32,12 +32,12 @@ For fuzzy C-means directly:
 .. code-block:: python
 
    import numpy as np
-   from brain_3d import FCM
-   from brain_3d.stratification import d_m
+   from brain_3d import Fcm
+   from brain_3d.Stratification import d_m
 
    data = np.asarray([[0.0, 0.1], [0.2, 0.0], [5.0, 5.1], [5.2, 4.9]])
    initial_centers = [data[0], data[2]]
-   clusters, centers, membership = FCM.FCM(
+   clusters, centers, membership = Fcm.FCM(
        data,
        NClasses=2,
        Centers=initial_centers,

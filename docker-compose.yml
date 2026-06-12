@@ -3,50 +3,50 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: 3d-brain:dev
     container_name: brain-3d-dev
+    working_dir: /app
     volumes:
       - .:/app
-      - /app/__pycache__
     environment:
-      - PYTHONUNBUFFERED=1
-      - PYTHONDONTWRITEBYTECODE=1
-    working_dir: /app
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
     stdin_open: true
     tty: true
     command: /bin/bash
-    
+
   jupyter:
+    image: 3d-brain:dev
     build:
       context: .
       dockerfile: Dockerfile
     container_name: brain-3d-jupyter
+    working_dir: /app
     ports:
-      - "8888:8888"
+      - "127.0.0.1:8888:8888"
     volumes:
       - .:/app
-      - /app/__pycache__
     environment:
-      - PYTHONUNBUFFERED=1
-      - PYTHONDONTWRITEBYTECODE=1
-    working_dir: /app
-    command: >
-      jupyter notebook 
-      --ip=0.0.0.0 
-      --allow-root 
-      --no-browser 
-      --NotebookApp.token='' 
-      --NotebookApp.password=''
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      JUPYTER_TOKEN: "${JUPYTER_TOKEN:-brain}"
+    command:
+      - python
+      - -m
+      - notebook
+      - --ip=0.0.0.0
+      - --port=8888
+      - --no-browser
+      - --NotebookApp.token=${JUPYTER_TOKEN:-brain}
+      - --NotebookApp.password=
 
-  # Optional: GPU-enabled service (requires NVIDIA Docker)
-  # 3d-brain-gpu:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   runtime: nvidia
-  #   environment:
-  #     - NVIDIA_VISIBLE_DEVICES=all
-  #     - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-  #   volumes:
-  #     - .:/app
-  #   working_dir: /app
-  #   command: /bin/bash
+  docs:
+    image: 3d-brain:dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: brain-3d-docs
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: python -m sphinx -E -b html docs/source docs/build/html

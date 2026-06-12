@@ -1,7 +1,7 @@
-gan\_functions module
+bxr\_functions module
 =====================
 
-.. automodule:: brain_3d.gan_functions
+.. automodule:: brain_3d.BxrFunctions
    :members:
    :show-inheritance:
    :undoc-members:

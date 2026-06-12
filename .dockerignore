@@ -11,6 +11,7 @@ venv/
 .dockerignore
 docker-compose.yml
 .DS_Store
+.Rhistory
 *.log
 .pytest_cache
 .mypy_cache
@@ -34,4 +35,5 @@ logs/
 *.brw
 *.bxr
 .ipynb_checkpoints
-LICENSE
+best_generator.pth
+best_discriminator.pth

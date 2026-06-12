@@ -17,6 +17,7 @@ PyWavelets>=1.2.0
 
 # ML and clustering
 scikit-learn>=1.0.0
+sktime>=0.24.0
 networkx>=2.6.0
 python-igraph>=0.9.0
 leidenalg>=0.9.0
@@ -27,11 +28,7 @@ tslearn>=0.6.0
 # Utilities
 psutil>=5.9.0
 
-# Documentation
-sphinx>=4.0.0
-sphinx-rtd-theme>=1.0.0
-sphinx-autodoc-typehints>=1.12.0
-
-# Optional: For development
-pytest>=6.2.0
-black>=21.0.0
+# Spike-train analysis
+elephant>=0.10.0
+neo>=0.11.0
+quantities>=0.13.0

@@ -1,4 +1,4 @@
-"stratification functions"
+"Stratification functions"
 import numpy as np
 import warnings
 np.warnings = warnings
@@ -13,7 +13,7 @@ from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
 from pyclustering.utils.metric import type_metric, distance_metric
 import pandas as pd
 import math
-from . import FCM
+from . import Fcm
 import igraph as ig
 import leidenalg as la
 from kneed import KneeLocator
@@ -41,14 +41,14 @@ def d_m(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS 
     Returns:
         d (float): Minkowski distance between a and b.
     """
-    l1 = len(a)
-    l2 = len(b)
-    if l1 != l2:
+    L1 = len(a)
+    L2 = len(b)
+    if L1 != L2:
         print('vectors with not equal length')
     else:
-        d = minkowski(a, b, p=pMinkowski )
+        D = minkowski(a, b, p=pMinkowski )
     
-        return d
+        return D
     
 def MatrixC(M):
     """
@@ -60,15 +60,15 @@ def MatrixC(M):
     Returns:
         C (np.ndarray): matrix helpful in the dtw (and derivatives) distance.
     """
-    l1 = M.shape[0]
-    C = np.zeros((l1+1, l1+1))
+    L1 = M.shape[0]
+    C = np.zeros((L1+1, L1+1))
     C[:][:] = np.inf
     C[0][0] = 0
-    for i in range(l1):
-        iC = i+1
-        for j in range(l1):
-            jC = j+1
-            C[iC][jC] = M[i][j] + min(C[iC-1][jC-1], C[iC-1][jC], C[iC][jC-1])
+    for I in range(L1):
+        IC = I+1
+        for J in range(L1):
+            JC = J+1
+            C[IC][JC] = M[I][J] + min(C[IC-1][JC-1], C[IC-1][JC], C[IC][JC-1])
     return C
 
 def Warping(a, b, M):
@@ -84,38 +84,38 @@ def Warping(a, b, M):
         tuple: realignments and indexes of the realignment.
     """
     C = MatrixC(M)
-    i = C.shape[0]-1
-    j = C.shape[1]-1
-    l = []
-    while (i>0) & (j>0):
-        l.append((i,j))
-        m = min(C[i-1][j],C[i][j-1], C[i-1][j-1])
-        if m == C[i-1][j-1]:
-            i = i-1
-            j = j-1
-        elif m == C[i][j-1]:
-            i = i
-            j = j-1
-        elif m == C[i-1][j]:
-            i = i-1
-            j = j
-    idx_a = []
-    idx_b = []
-    for k in range(len(l)):
-        idx_a.append(l[len(l)-1-k][0])
-        idx_b.append(l[len(l)-1-k][1])
+    I = C.shape[0]-1
+    J = C.shape[1]-1
+    L = []
+    while (I>0) & (J>0):
+        L.append((I,J))
+        MinCost = min(C[I-1][J],C[I][J-1], C[I-1][J-1])
+        if MinCost == C[I-1][J-1]:
+            I = I-1
+            J = J-1
+        elif MinCost == C[I][J-1]:
+            I = I
+            J = J-1
+        elif MinCost == C[I-1][J]:
+            I = I-1
+            J = J
+    IdxA = []
+    IdxB = []
+    for K in range(len(L)):
+        IdxA.append(L[len(L)-1-K][0])
+        IdxB.append(L[len(L)-1-K][1])
 
-    x = range(len(a))
-    w_a = np.zeros(len(idx_a))
-    w_b = np.zeros(len(idx_a))
-    for i in range(len(idx_a)):
-        w_a[i] = a[idx_a[i]-1]
-        w_b[i] = b[idx_b[i]-1]
-    idx_a = np.array(idx_a)-1
-    idx_b = np.array(idx_b)-1
+    X = range(len(a))
+    WA = np.zeros(len(IdxA))
+    WB = np.zeros(len(IdxA))
+    for I in range(len(IdxA)):
+        WA[I] = a[IdxA[I]-1]
+        WB[I] = b[IdxB[I]-1]
+    IdxA = np.array(IdxA)-1
+    IdxB = np.array(IdxB)-1
  
     
-    return w_a, w_b, idx_a, idx_b
+    return WA, WB, IdxA, IdxB
 
 def MatrixM(a, b):
     """
@@ -128,19 +128,19 @@ def MatrixM(a, b):
     Returns:
         M (np.ndarray): 2D matrix containing the punctual ed distances between the entries of the vectors a and b.
     """
-    l1 = len(a)
+    L1 = len(a)
     '''
     M = np.zeros((l1, l1))
     for i in range(l1):
         for j in range(l1):
             M[i][j] = (a[i]-b[j])**2
     '''
-    aa = np.repeat(a,l1,axis=0)
-    aa = np.reshape(aa,(l1,l1))
-    bb = np.repeat(b,l1,axis=0)
-    bb = np.reshape(bb,(l1,l1))
-    bb = bb.T
-    M = (aa-bb)**2
+    Aa = np.repeat(a,L1,axis=0)
+    Aa = np.reshape(Aa,(L1,L1))
+    Bb = np.repeat(b,L1,axis=0)
+    Bb = np.reshape(Bb,(L1,L1))
+    Bb = Bb.T
+    M = (Aa-Bb)**2
 
     
     return M
@@ -162,15 +162,15 @@ def d_dtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCS
     Returns:
         d (float): dtw distance between a and b.
     """
-    l1 = len(a)
-    l2 = len(b)
-    if l1 != l2:
+    L1 = len(a)
+    L2 = len(b)
+    if L1 != L2:
         print('vectors with not equal length')
     else:
         M = MatrixM(a, b)
         C = MatrixC(M)
-        d = C[l1][l1]
-        return math.pow(d,0.5)
+        D = C[L1][L1]
+        return math.pow(D,0.5)
 
 def a1_b1_ddtw(a, b):
     """
@@ -183,14 +183,14 @@ def a1_b1_ddtw(a, b):
     Returns:
         tuple: the new vectors for the ddtw (wddtw) distance between a and b.
     """
-    l1 = len(a)
-    a1 = np.empty(l1-2)
-    b1 = np.empty(l1-2)
-    indexes =np.array(range(l1-2))+1
-    for i in indexes:
-        a1[i-1]=((a[i]-a[i-1])+((a[i+1]-a[i-1])/2))/2
-        b1[i-1]=((b[i]-b[i-1])+((b[i+1]-b[i-1])/2))/2
-    return a1, b1
+    L1 = len(a)
+    A1 = np.empty(L1-2)
+    B1 = np.empty(L1-2)
+    Indexes =np.array(range(L1-2))+1
+    for I in Indexes:
+        A1[I-1]=((a[I]-a[I-1])+((a[I+1]-a[I-1])/2))/2
+        B1[I-1]=((b[I]-b[I-1])+((b[I+1]-b[I-1])/2))/2
+    return A1, B1
 
 def d_ddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
@@ -209,14 +209,14 @@ def d_ddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
     Returns:
         d (float): ddtw distance between a and b.
     """
-    l1 = len(a)
-    l2 = len(b)
-    if l1 != l2:
+    L1 = len(a)
+    L2 = len(b)
+    if L1 != L2:
         print('vectors with not equal length')
     else:
-        a1, b1 = a1_b1_ddtw(a, b)
-        d = d_dtw(a1,b1)
-        return d
+        A1, B1 = a1_b1_ddtw(a, b)
+        D = d_dtw(A1,B1)
+        return D
     
 def d_wdtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
@@ -235,16 +235,16 @@ def d_wdtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
     Returns:
         d (float): wdtw distance between a and b.
     """
-    l1 = len(a)
-    l2 = len(b)
-    if l1 != l2:
+    L1 = len(a)
+    L2 = len(b)
+    if L1 != L2:
         print('vectors with not equal length')
     else:
         M = MatrixM(a, b)
         M = MatrixMw(M, wMax, g)
         C = MatrixC(M)        
-        d = C[l1][l1]
-        return math.pow(d,0.5)
+        D = C[L1][L1]
+        return math.pow(D,0.5)
     
 def MatrixMw(M, wMax, g):
     """
@@ -258,11 +258,11 @@ def MatrixMw(M, wMax, g):
     Returns:
         Mw (np.ndarray): Matrix of the punctual distances between the entries of two vectors but with weights based on the indexes of the entries.
     """
-    l1=M.shape[0]
+    L1=M.shape[0]
 
-    for i in range(l1):
-            for j in range(l1):
-                M[i,j] = (wMax/(1+math.exp(-g*(abs(i-j)-l1/2))))*M[i,j]
+    for I in range(L1):
+            for J in range(L1):
+                M[I,J] = (wMax/(1+math.exp(-g*(abs(I-J)-L1/2))))*M[I,J]
     return M
     
 def d_wddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate = 1000):
@@ -282,9 +282,9 @@ def d_wddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonL
     Returns:
         d (float): wdtw distance between a and b.
     """
-    a1, b1 = a1_b1_ddtw(a, b)
-    d = d_wdtw(a1, b1, wMax = wMax, g = g)
-    return d
+    A1, B1 = a1_b1_ddtw(a, b)
+    D = d_wdtw(A1, B1, wMax = wMax, g = g)
+    return D
 
 def d_lcss(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
@@ -303,25 +303,25 @@ def d_lcss(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
     Returns:
         d (float): lcss distance between a and b.
     """
-    epsilonLCSS_abs = epsilonLCSS*np.linalg.norm(a)
+    EpsilonLCSSAbs = epsilonLCSS*np.linalg.norm(a)
 
-    l1 = len(a)
-    l2 = len(b)
-    if l1 != l2:
+    L1 = len(a)
+    L2 = len(b)
+    if L1 != L2:
         print('vectors with not equal length')
     else:
-        L = np.zeros((l1+1, l1+1))
-        for i in range(l1):
-            i_L = i+1
-            for j in range(l1):
-                j_L = j+1
-                if abs(a[i]-b[j])<epsilonLCSS_abs:
-                    L[i_L][j_L] = L[i_L-1][j_L-1]+1
+        L = np.zeros((L1+1, L1+1))
+        for I in range(L1):
+            IL = I+1
+            for J in range(L1):
+                JL = J+1
+                if abs(a[I]-b[J])<EpsilonLCSSAbs:
+                    L[IL][JL] = L[IL-1][JL-1]+1
                 else:
-                    L[i_L][j_L] = max(L[i_L-1][j_L], L[i_L][j_L-1])
-        LCSS = L[l1][l1]
-        d = 1 - LCSS/l1
-        return d
+                    L[IL][JL] = max(L[IL-1][JL], L[IL][JL-1])
+        LCSS = L[L1][L1]
+        D = 1 - LCSS/L1
+        return D
 
 def d_edr(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
@@ -340,29 +340,29 @@ def d_edr(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCS
     Returns:
         d (float): edr distance between a and b.
     """
-    epsilonEDR_abs = epsilonEDR*np.linalg.norm(a)
+    EpsilonEDRAbs = epsilonEDR*np.linalg.norm(a)
 
-    l1 = len(a)
-    l2 = len(b)
-    if l1 != l2:
+    L1 = len(a)
+    L2 = len(b)
+    if L1 != L2:
         print('vectors with not equal length')
     else:
-        E = np.zeros((l1+1, l1+1))
+        E = np.zeros((L1+1, L1+1))
 
-        for i in range(l1):
-            i_E = i+1
-            for j in range(l1):
-                j_E = j+1
-                if abs(a[i]-b[j])<epsilonEDR_abs:
-                    c = 0
+        for I in range(L1):
+            IE = I+1
+            for J in range(L1):
+                JE = J+1
+                if abs(a[I]-b[J])<EpsilonEDRAbs:
+                    C = 0
                 else:
-                    c = 1
-                match = E[i_E-1][j_E-1]+c
-                insert = E[i_E-1][j_E]+1
-                delete = E[i_E][j_E-1]+1
-                E[i_E][j_E] = min(match, insert, delete)
-        d = E[l1][l1]
-        return d
+                    C = 1
+                Match = E[IE-1][JE-1]+C
+                Insert = E[IE-1][JE]+1
+                Delete = E[IE][JE-1]+1
+                E[IE][JE] = min(Match, Insert, Delete)
+        D = E[L1][L1]
+        return D
 
 def d_rho_2 (a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
@@ -382,14 +382,14 @@ def d_rho_2 (a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilon
         d (float): rho2 distance between a and b.
     """
 
-    l1 = len(a)
-    l2 = len(b)
-    if l1 != l2:
+    L1 = len(a)
+    L2 = len(b)
+    if L1 != L2:
         print('vectors with not equal length')
     else:
-        rho = pearsonr(a,b)[0]
-        d = 2*(1-rho)
-    return d
+        Rho = pearsonr(a,b)[0]
+        D = 2*(1-Rho)
+    return D
 
 def d_sts(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
@@ -412,11 +412,11 @@ def d_sts(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCS
     if len(a) != len(b):
         print('vectors with not equal length')
     else:
-        aa = np.diff(a)
-        bb = np.diff(b)
-        aux = ((aa-bb)*SamplingRate)**2
-        d = math.sqrt(np.sum(aux))
-        return d
+        Aa = np.diff(a)
+        Bb = np.diff(b)
+        Aux = ((Aa-Bb)*SamplingRate)**2
+        D = math.sqrt(np.sum(Aux))
+        return D
     
 def AdjacencyMatrix(Data, DistanceStr = 'm', pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
@@ -436,21 +436,21 @@ def AdjacencyMatrix(Data, DistanceStr = 'm', pMinkowski  = 2, wMax = 1, g = 1, e
         adjacency (np.ndarray): 2D matrix adjacency matrix for Leiden graph-based Algorithm.
     """
 
-    distance = 'd_'+DistanceStr
-    distance = globals()[distance]
-    distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
-    dim = Data.shape[0]
-    matrix = np.zeros((dim,dim))
-    for i in range(dim):
-        for j in np.array(range(i+1,dim)):
-            matrix[i][j]=distance(Data[i], Data[j])
-    matrix = matrix + matrix.T
-    M = np.max(matrix)
-    matrix_2 = matrix/M
-    adjacency = 1/(1+matrix_2)
-    adjacency[adjacency<=0.75]=0
+    Distance = 'd_'+DistanceStr
+    Distance = globals()[Distance]
+    Distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+    Dim = Data.shape[0]
+    Matrix = np.zeros((Dim,Dim))
+    for I in range(Dim):
+        for J in np.array(range(I+1,Dim)):
+            Matrix[I][J]=Distance(Data[I], Data[J])
+    Matrix = Matrix + Matrix.T
+    M = np.max(Matrix)
+    Matrix2 = Matrix/M
+    Adjacency = 1/(1+Matrix2)
+    Adjacency[Adjacency<=0.75]=0
 
-    return adjacency
+    return Adjacency
 
 '''Normalization'''
 def NormalizationMinMaxSingle(Data):
@@ -463,13 +463,13 @@ def NormalizationMinMaxSingle(Data):
     Returns:
         Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset normalized.
     """
-    for i in range(len(Data)):
-        m = min(Data[i,:])
-        M = max(Data[i,:])
-        if m == M :
-            Data[i,:] = Data[i,:]-Data[i,:]
+    for I in range(len(Data)):
+        Minimum = min(Data[I,:])
+        M = max(Data[I,:])
+        if Minimum == M :
+            Data[I,:] = Data[I,:]-Data[I,:]
         else:
-            Data[i,:] = (Data[i,:]-m)/(M-m) 
+            Data[I,:] = (Data[I,:]-Minimum)/(M-Minimum) 
 
     return Data 
 
@@ -484,16 +484,16 @@ def NormalizationMinMaxGlobal(Data):
         Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset normalized.
     """
    
-    size = len(Data)
-    m = np.zeros(size)
-    M = np.zeros(size)
-    for i in range(size):
-        m[i] = min(Data[i,:])
-        M[i] = max(Data[i,:])
-    minimum = min(m)
-    maximum = max(M)
-    for i in range(size):
-        Data[i,:] = (Data[i,:]-minimum)/(maximum-minimum)
+    Size = len(Data)
+    Minimums = np.zeros(Size)
+    M = np.zeros(Size)
+    for I in range(Size):
+        Minimums[I] = min(Data[I,:])
+        M[I] = max(Data[I,:])
+    Minimum = min(Minimums)
+    Maximum = max(M)
+    for I in range(Size):
+        Data[I,:] = (Data[I,:]-Minimum)/(Maximum-Minimum)
 
     return Data
 
@@ -507,15 +507,15 @@ def Whitening(Data):
     Returns:
         Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset normalized.
     """
-    for i in  range(len(Data)):
-        m = min(Data[i,:])
-        M = max(Data[i,:])
-        mu = np.mean(Data[i,:])
-        sigma = np.std(Data[i,:])
-        if m == M:
-            Data[i,:] = Data[i,:]-Data[i,:]
+    for I in  range(len(Data)):
+        Minimum = min(Data[I,:])
+        M = max(Data[I,:])
+        Mu = np.mean(Data[I,:])
+        Sigma = np.std(Data[I,:])
+        if Minimum == M:
+            Data[I,:] = Data[I,:]-Data[I,:]
         else:
-            Data[i,:] = (Data[i,:]-mu)/sigma
+            Data[I,:] = (Data[I,:]-Mu)/Sigma
 
     return Data
 
@@ -529,11 +529,11 @@ def WhiteningGlobal(Data):
     Returns:
         Data (np.ndarray): 2D matrix (Nobs x Ntimes) representing the Dataset normalized.
     """
-    size = len(Data)
-    mu = np.mean(Data)
-    sigma = np.std(Data)
-    for i in range(size):
-        Data[i,:] = (Data[i,:]-mu)/sigma 
+    Size = len(Data)
+    Mu = np.mean(Data)
+    Sigma = np.std(Data)
+    for I in range(Size):
+        Data[I,:] = (Data[I,:]-Mu)/Sigma 
 
     return Data   
 
@@ -556,11 +556,11 @@ def Dendrogram(Data, Distance, methodHC ='complete', ThresholdDendrogram=0.7):
 
     try:
         LinkageData = linkage(Data, method = methodHC, metric = Distance)
-        n = len(Data)
+        N = len(Data)
         AggregationLevels = LinkageData[:,2]
-        max_d = ThresholdDendrogram * AggregationLevels[n-2]
+        MaxD = ThresholdDendrogram * AggregationLevels[N-2]
     except:
-        max_d = ThresholdDendrogram*len(Data)
+        MaxD = ThresholdDendrogram*len(Data)
     '''
     plt.figure()
     plt.title("Dendrogram")
@@ -569,7 +569,7 @@ def Dendrogram(Data, Distance, methodHC ='complete', ThresholdDendrogram=0.7):
     plt.show()
     #plt.savefig("Dendrogram.png")
     # '''
-    return max_d
+    return MaxD
 
 def HierarchicalClustering(Data, methodHC, Distance, ThresholdDendrogram, MaxClasses, criterion, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate):
     """
@@ -598,26 +598,26 @@ def HierarchicalClustering(Data, methodHC, Distance, ThresholdDendrogram, MaxCla
 
     elif criterion=='maxclust':
         if type(MaxClasses) == int:
-            kElbow = MaxClasses
-            Fclust = fclusterdata(Data, kElbow, criterion = 'maxclust', metric = Distance, method = methodHC)
+            KElbow = MaxClasses
+            Fclust = fclusterdata(Data, KElbow, criterion = 'maxclust', metric = Distance, method = methodHC)
         else:
-            score = -1000
-            for kElbow in MaxClasses:
-                print(kElbow)
-                FclustAux = fclusterdata(Data, kElbow, criterion = 'maxclust', metric = Distance, method = methodHC)
+            Score = -1000
+            for KElbow in MaxClasses:
+                print(KElbow)
+                FclustAux = fclusterdata(Data, KElbow, criterion = 'maxclust', metric = Distance, method = methodHC)
                 ClustersAux = []
-                for i in range(max(FclustAux)):
-                    indexes = np.where(FclustAux==i+1)[0]
-                    ClustersAux.append(indexes)
+                for I in range(max(FclustAux)):
+                    Indexes = np.where(FclustAux==I+1)[0]
+                    ClustersAux.append(Indexes)
                 ClustersAux = [max(FclustAux), ClustersAux]
                 ScoreAux  = Silhouette(Data, ClustersAux, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
-                if ScoreAux>score:
-                    score = ScoreAux
+                if ScoreAux>Score:
+                    Score = ScoreAux
                     Fclust = FclustAux
     Clusters = []
-    for i in range(max(Fclust)):
-        indexes = np.where(Fclust==i+1)[0]
-        Clusters.append(indexes)
+    for I in range(max(Fclust)):
+        Indexes = np.where(Fclust==I+1)[0]
+        Clusters.append(Indexes)
     
     return Clusters
 
@@ -640,10 +640,10 @@ def Kshape_Algo(Data, nc2test, methodKM='silhouette'):
     # KShape richiede dati normalizzati e shape (n_samples, n_timesteps, 1)
     DataScaled = TimeSeriesScalerMeanVariance().fit_transform(Data)
 
-    iterations = []
-    best_labels = None
-    best_Centers = None
-    cBest = nc2test[0]
+    Iterations = []
+    BestLabels = None
+    BestCenters = None
+    CBest = nc2test[0]
 
     if methodKM == 'davies_bouldin':
         BestScore = float('inf')
@@ -651,54 +651,54 @@ def Kshape_Algo(Data, nc2test, methodKM='silhouette'):
         BestScore = -float('inf')
 
     if len(nc2test) == 1:
-        nClusters = nc2test[0]
-        ks = KShape(nClusters=nClusters, random_state=42)
-        labels = ks.fit_predict(DataScaled)
-        return labels, nClusters, ks.cluster_Centers_
+        NClusters = nc2test[0]
+        Ks = KShape(nClusters=NClusters, random_state=42)
+        Labels = Ks.fit_predict(DataScaled)
+        return Labels, NClusters, Ks.cluster_Centers_
 
     else:
-        for nClusters in nc2test:
-            ks = KShape(nClusters=nClusters, random_state=42)
-            labels = ks.fit_predict(DataScaled)
+        for NClusters in nc2test:
+            Ks = KShape(nClusters=NClusters, random_state=42)
+            Labels = Ks.fit_predict(DataScaled)
 
             # WCSS con distanza shape-based non ha senso, usiamo l'inertia di KShape
-            wcss = ks.inertia_
+            Wcss = Ks.inertia_
 
-            if len(np.unique(labels)) > 1:
+            if len(np.unique(Labels)) > 1:
                 # per silhouette usiamo i dati originali 2D (n_samples x n_timesteps)
                 Data2d = DataScaled.reshape(DataScaled.shape[0], -1)
                 if methodKM == 'silhouette':
-                    score = silhouette_score(Data2d, labels, sample_size=1000, random_state=42)
+                    Score = silhouette_score(Data2d, Labels, sample_size=1000, random_state=42)
                 elif methodKM == 'davies_bouldin':
-                    score = davies_bouldin_score(Data2d, labels)
+                    Score = davies_bouldin_score(Data2d, Labels)
                 elif methodKM == 'calinski_harabasz':
-                    score = calinski_harabasz_score(Data2d, labels)
+                    Score = calinski_harabasz_score(Data2d, Labels)
                 elif methodKM == 'wcss':
-                    score = wcss
+                    Score = Wcss
             else:
-                score = 0
+                Score = 0
 
             if methodKM == 'davies_bouldin':
-                if score < BestScore:
-                    BestScore = score
-                    cBest = nClusters
-                    best_labels = labels
-                    best_Centers = ks.cluster_Centers_
+                if Score < BestScore:
+                    BestScore = Score
+                    CBest = NClusters
+                    BestLabels = Labels
+                    BestCenters = Ks.cluster_Centers_
             else:
-                if score > BestScore:
-                    BestScore = score
-                    cBest = nClusters
-                    best_labels = labels
-                    best_Centers = ks.cluster_Centers_
+                if Score > BestScore:
+                    BestScore = Score
+                    CBest = NClusters
+                    BestLabels = Labels
+                    BestCenters = Ks.cluster_Centers_
 
-            print(f"For n_Centroids = {nClusters}, {methodKM} score is {score}")
-            print(f"For n_Centroids = {nClusters}, davies_bouldin score is {davies_bouldin_score(Data2d, labels)}")
-            print(f"For n_Centroids = {nClusters}, calinski_harabasz score is {calinski_harabasz_score(Data2d, labels)}")
-            print(f"For n_Centroids = {nClusters}, wcss score is {wcss}")
+            print(f"For n_Centroids = {NClusters}, {methodKM} score is {Score}")
+            print(f"For n_Centroids = {NClusters}, davies_bouldin score is {davies_bouldin_score(Data2d, Labels)}")
+            print(f"For n_Centroids = {NClusters}, calinski_harabasz score is {calinski_harabasz_score(Data2d, Labels)}")
+            print(f"For n_Centroids = {NClusters}, wcss score is {Wcss}")
 
-            iterations.append(score)
+            Iterations.append(Score)
 
-        return best_labels, cBest, best_Centers
+        return BestLabels, CBest, BestCenters
 
 def Kmeans_Algo(Data, nc2test, distance, methodKM = 'silhouette'):
     """
@@ -712,94 +712,94 @@ def Kmeans_Algo(Data, nc2test, distance, methodKM = 'silhouette'):
     """
 
   
-    metric = distance_metric(type_metric.USER_DEFINED, func=distance)
-    iterations = []
-    classi = []
+    Metric = distance_metric(type_metric.USER_DEFINED, func=distance)
+    Iterations = []
+    Classi = []
     Centers = []
-    cBest = 1
+    CBest = 1
     if methodKM == 'davies_bouldin':
         BestScore = float('inf')
     else:
         BestScore = -float('inf')
 
     if len(nc2test) == 1:
-        nClusters = nc2test[0]
-        StartCenters = kmeans_plusplus_initializer(Data, nClusters).initialize();
-        KmeansInstance = kmeans(Data, StartCenters, metric=metric)
+        NClusters = nc2test[0]
+        StartCenters = kmeans_plusplus_initializer(Data, NClusters).initialize();
+        KmeansInstance = kmeans(Data, StartCenters, metric=Metric)
         # run cluster analysis and obtain results
         KmeansInstance.process()
         Clusters = KmeansInstance.get_Clusters()
-        classi.append((nClusters, Clusters))
+        Classi.append((NClusters, Clusters))
         Centers.append(KmeansInstance.get_Centers())
-        return classi[0][1], nClusters, Centers[0] 
+        return Classi[0][1], NClusters, Centers[0] 
     
     else:
-        for k in range(len(nc2test)):
+        for K in range(len(nc2test)):
             #random 
-            nClusters = nc2test[k] 
-            n = len(Data)
-            StartCenters = kmeans_plusplus_initializer(Data, nClusters).initialize();
-            KmeansInstance = kmeans(Data, StartCenters, metric=metric)
+            NClusters = nc2test[K] 
+            N = len(Data)
+            StartCenters = kmeans_plusplus_initializer(Data, NClusters).initialize();
+            KmeansInstance = kmeans(Data, StartCenters, metric=Metric)
             # run cluster analysis and obtain results
             KmeansInstance.process()
             Clusters = KmeansInstance.get_Clusters()
-            nClusters_postK = len(Clusters)
-            classi.append((nClusters_postK, Clusters))
+            NClustersPostK = len(Clusters)
+            Classi.append((NClustersPostK, Clusters))
             Centers.append(KmeansInstance.get_Centers())
-            labels = np.array(range(n))
-            wcss = 0
-            for j in range(len(Clusters)):
-                labels[Clusters[j]] = j+1
-                cluster_points = Data[Clusters[j]] 
-                for i in range(cluster_points.shape[0]): 
-                    wcss += distance(cluster_points[i], Centers[k][j])**2
-            iterations.append(wcss)
+            Labels = np.array(range(N))
+            Wcss = 0
+            for J in range(len(Clusters)):
+                Labels[Clusters[J]] = J+1
+                ClusterPoints = Data[Clusters[J]] 
+                for I in range(ClusterPoints.shape[0]): 
+                    Wcss += distance(ClusterPoints[I], Centers[K][J])**2
+            Iterations.append(Wcss)
 
-            if len(np.unique(labels))>1:  
+            if len(np.unique(Labels))>1:  
                 if methodKM == 'silhouette': 
-                    score = silhouette_score(Data, labels, metric=metric, sample_size=1000, random_state=42)
+                    Score = silhouette_score(Data, Labels, metric=Metric, sample_size=1000, random_state=42)
                 elif methodKM == 'davies_bouldin':
-                    score = davies_bouldin_score(Data, labels)
+                    Score = davies_bouldin_score(Data, Labels)
                 elif methodKM == 'calinski_harabasz':
-                    score = calinski_harabasz_score(Data, labels)
+                    Score = calinski_harabasz_score(Data, Labels)
                 elif methodKM == 'wcss':
-                    score = wcss
+                    Score = Wcss
             else:
-                score = 0 
+                Score = 0 
 
             if methodKM == 'davies_bouldin':
-                if score < BestScore:  
-                    BestScore = score
-                    cBest = nClusters
+                if Score < BestScore:  
+                    BestScore = Score
+                    CBest = NClusters
             else:
-                if score > BestScore:
-                    BestScore = score
-                    cBest = nClusters
+                if Score > BestScore:
+                    BestScore = Score
+                    CBest = NClusters
                
-            print(f"For n_Centroids = {nClusters}, {methodKM} score is {score}")
-            print(f"For n_Centroids = {nClusters}, davies_bouldin score is {davies_bouldin_score(Data, labels)}")
-            print(f"For n_Centroids = {nClusters}, calinski_harabasz score is {calinski_harabasz_score(Data, labels)}")
-            print(f"For n_Centroids = {nClusters}, wcss score is {wcss}")
+            print(f"For n_Centroids = {NClusters}, {methodKM} score is {Score}")
+            print(f"For n_Centroids = {NClusters}, davies_bouldin score is {davies_bouldin_score(Data, Labels)}")
+            print(f"For n_Centroids = {NClusters}, calinski_harabasz score is {calinski_harabasz_score(Data, Labels)}")
+            print(f"For n_Centroids = {NClusters}, wcss score is {Wcss}")
 
 
-            iterations.append(score) 
+            Iterations.append(Score) 
             
             
         if methodKM == 'wcss':
-            nc2test_array = np.array(nc2test)
-            kl = KneeLocator(nc2test_array, iterations, curve="convex", direction="decreasing")
-            kElbow = kl.elbow
-            if kElbow is None:
-                kElbow=nc2test_array[-1]
-            IdxBest = np.where(nc2test_array==kElbow)[0][0]
+            Nc2testArray = np.array(nc2test)
+            Kl = KneeLocator(Nc2testArray, Iterations, curve="convex", direction="decreasing")
+            KElbow = Kl.elbow
+            if KElbow is None:
+                KElbow=Nc2testArray[-1]
+            IdxBest = np.where(Nc2testArray==KElbow)[0][0]
         else:
-            nc2test_array = np.array(nc2test)
+            Nc2testArray = np.array(nc2test)
             try:
-                IdxBest = np.where(nc2test_array==cBest)[0][0]
+                IdxBest = np.where(Nc2testArray==CBest)[0][0]
             except:
                 IdxBest = 0
     
-        return classi[IdxBest][1], classi[IdxBest][0], Centers[IdxBest] 
+        return Classi[IdxBest][1], Classi[IdxBest][0], Centers[IdxBest] 
     
 
 def Silhouette(Data, Clusters, Distance, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate):
@@ -817,18 +817,18 @@ def Silhouette(Data, Clusters, Distance, pMinkowski , wMax, g, epsilonEDR, epsil
         epsilonLCSS (float): Defaults to 0.001.
         SamplingRate (float): Defaults to 1000.
     """
-    labels = np.array(range(Data.shape[0]))
-    for j in range(Clusters[0]):
-        labels[Clusters[1][j]] = j+1
-    if len(np.unique(labels))>1:
-        d = 'd_'+Distance
-        d = globals()[d]
-        d.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
-        score = silhouette_score(Data, labels, metric=d)
+    Labels = np.array(range(Data.shape[0]))
+    for J in range(Clusters[0]):
+        Labels[Clusters[1][J]] = J+1
+    if len(np.unique(Labels))>1:
+        D = 'd_'+Distance
+        D = globals()[D]
+        D.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+        Score = silhouette_score(Data, Labels, metric=D)
     else:
-        score = 0 
+        Score = 0 
 
-    return score
+    return Score
 
 def ICA_Algo(Data, ncomp = 10):
     """
@@ -842,8 +842,8 @@ def ICA_Algo(Data, ncomp = 10):
         Xtransformed (np.ndarray): Dataset projected on the selected independent components.
         Xback (np.ndarray): reconstructed Dataset projected back to the original feature space.
     """
-    n = min(Data.shape[0], Data.shape[1], ncomp)
-    ICA = FastICA(n_components=n, random_state=0)
+    N = min(Data.shape[0], Data.shape[1], ncomp)
+    ICA = FastICA(n_components=N, random_state=0)
     Xtransformed = ICA.fit_transform(Data)
     Xback = ICA.inverse_transform(Xtransformed)
     return Xtransformed, Xback 
@@ -860,14 +860,14 @@ def kernelPCA_Algo(Data, ncomp = 10):
         Xtransformed (np.ndarray): the Dataset projected on the principal components selected from the kernel PCA.
         Xback (np.ndarray): the Dataset projected back on the original Dataset.
     """
-    scaler = StandardScaler()
-    DataScaled = scaler.fit_transform(Data)
-    n = min(Data.shape[0], Data.shape[1], ncomp)
-    pca = KernelPCA(n_components=n, fit_inverse_transform=True)
-    pca.fit(DataScaled)
-    Xtransformed = pca.fit_transform(DataScaled)
-    Xback = pca.inverse_transform(Xtransformed)
-    Xback = scaler.inverse_transform(Xback)
+    Scaler = StandardScaler()
+    DataScaled = Scaler.fit_transform(Data)
+    N = min(Data.shape[0], Data.shape[1], ncomp)
+    Pca = KernelPCA(n_components=N, fit_inverse_transform=True)
+    Pca.fit(DataScaled)
+    Xtransformed = Pca.fit_transform(DataScaled)
+    Xback = Pca.inverse_transform(Xtransformed)
+    Xback = Scaler.inverse_transform(Xback)
 
     return Xtransformed, Xback
 
@@ -883,20 +883,20 @@ def PCA_Algo(Data, ThresholdVariance = 0.9):
         Xtransformed (np.ndarray): the Dataset projected on the principal components selected from the PCA.
         Xback (np.ndarray): the Dataset projected back on the original Dataset.
     """
-    n = min(Data.shape[0], Data.shape[1])
-    pca = PCA(n_components=n)
-    pca.fit(Data)
-    variance = pca.explained_variance_ratio_
-    sum_ratio = 0
-    i = 0
-    while sum_ratio < ThresholdVariance:
-        sum_ratio += variance[i]
-        i += 1
-    n_c = i
+    N = min(Data.shape[0], Data.shape[1])
+    Pca = PCA(n_components=N)
+    Pca.fit(Data)
+    Variance = Pca.explained_variance_ratio_
+    SumRatio = 0
+    I = 0
+    while SumRatio < ThresholdVariance:
+        SumRatio += Variance[I]
+        I += 1
+    NC = I
     #print("Number of components to select: " +str(n_c))
-    pca = PCA(n_components=n_c)
-    Xtransformed  = pca.fit_transform(Data)
-    Xback = pca.inverse_transform(Xtransformed)
+    Pca = PCA(n_components=NC)
+    Xtransformed  = Pca.fit_transform(Data)
+    Xback = Pca.inverse_transform(Xtransformed)
 
     return Xtransformed, Xback
 
@@ -922,28 +922,28 @@ def Leiden_Algo(Data, ThresholdLeiden=0.95, DistanceStr = 'm', pMinkowski  = 2, 
     """
     #distance ='rho'
     if DistanceStr =='rho':
-        df = pd.DataFrame(Data)
-        c = df.corr()
-        c[c<=ThresholdLeiden]=0
+        Df = pd.DataFrame(Data)
+        C = Df.corr()
+        C[C<=ThresholdLeiden]=0
 
     else:
-        c = AdjacencyMatrix(Data.T, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate) 
+        C = AdjacencyMatrix(Data.T, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate) 
 
-    G =ig.Graph.Weighted_Adjacency(c, mode='undirected', attr='weight', loops=False)
-    partition=la.find_partition(G, la.ModularityVertexPartition)
-    optimiser = la.Optimiser()
-    improvement = optimiser.optimise_partition(partition)
-    while improvement:
-        improvement = optimiser.optimise_partition(partition)
-    partition_membership=partition.membership
-    nClusters = max(partition_membership)+1
-    partition_membership = np.array(partition_membership)
-    Clusters =[[] for i in range(nClusters)] 
-    for i in range(nClusters):
-        idx = np.where(partition_membership==i)[0]
-        Clusters[i].append(idx) 
+    G =ig.Graph.Weighted_Adjacency(C, mode='undirected', attr='weight', loops=False)
+    Partition=la.find_partition(G, la.ModularityVertexPartition)
+    Optimiser = la.Optimiser()
+    Improvement = Optimiser.optimise_partition(Partition)
+    while Improvement:
+        Improvement = Optimiser.optimise_partition(Partition)
+    PartitionMembership=Partition.membership
+    NClusters = max(PartitionMembership)+1
+    PartitionMembership = np.array(PartitionMembership)
+    Clusters =[[] for I in range(NClusters)] 
+    for I in range(NClusters):
+        Idx = np.where(PartitionMembership==I)[0]
+        Clusters[I].append(Idx) 
 
-    return Clusters, G, partition
+    return Clusters, G, Partition
 
 def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', criterionHC = 'distance', methodKM = 'silhouette', MaxIterFCM=10, ThresholdVariance = 0.9, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, FuzzyParameter = 1, ThresholdDendrogram = 0.7, MaxClasses = [2], ThresholdLeiden = 0.9, SamplingRate = 1000, pMinkowski  = 2, Normalization = 'OFF', NormMode ='min_max_single', ica_ncomp=10, kpca_ncomp=10): 
     """
@@ -974,15 +974,15 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
         kpca_ncomp (int): the number of components for kernelPCA.
     """
 
-    distance = 'd_'+DistanceStr
-    distance = globals()[distance]
-    distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+    Distance = 'd_'+DistanceStr
+    Distance = globals()[Distance]
+    Distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
 
    
-    n = Data.shape[0]
-    x = range(Data.shape[1])
+    N = Data.shape[0]
+    X = range(Data.shape[1])
         
-    Data_plot = Data.copy()
+    DataPlot = Data.copy()
 
     # Normalization
     if Normalization == 'ON':
@@ -1001,7 +1001,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             MaxClasses = 2
         if MaxClasses >= len(Data):
             MaxClasses = len(Data)
-        nc2test = [MaxClasses]
+        Nc2test = [MaxClasses]
     else:
         if len(MaxClasses)==1:
             MaxClasses = MaxClasses[0] 
@@ -1009,161 +1009,161 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
                 MaxClasses = 2
             if MaxClasses >= len(Data):
                 MaxClasses = len(Data)
-            nc2test = [MaxClasses]
+            Nc2test = [MaxClasses]
         else: 
-            nc2test = MaxClasses 
+            Nc2test = MaxClasses 
 
-    if n==1:
+    if N==1:
         return (1, [[0]])
     else: 
         if Algo == "HC":
-            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram)
-            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=nc2test, criterion = criterionHC,
+            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram)
+            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=Nc2test, criterion = criterionHC,
                                                  DistanceStr = DistanceStr,
                                                  pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate = SamplingRate)
             NClasses = len(ClustersHC)
             Clusters = []
-            for i in range(NClasses):
-                if len(ClustersHC[i])>0:
-                    Clusters.append(ClustersHC[i])
+            for I in range(NClasses):
+                if len(ClustersHC[I])>0:
+                    Clusters.append(ClustersHC[I])
             NClasses = len(Clusters)
         
         elif Algo == "KM":  
-            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
 
         
         elif Algo == "FCM":
-            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
-            Clusters, Centers, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=distance)
+            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            Clusters, Centers, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
             NClasses = len(Clusters)
 
         elif Algo == "KShape":
-            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=nc2test, methodKM=methodKM)
+            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
         elif Algo == "PCA&KShape":
             Data, DataPostPCA = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=nc2test, methodKM=methodKM)
+            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
         elif Algo == "ICA&KShape":
             Data, DataPostICA = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=nc2test, methodKM=methodKM)
+            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
         elif Algo == "KernelPCA&KShape":
             Data, DataPostPCA = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
-            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=nc2test, methodKM=methodKM)
+            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
     
     
         elif Algo=="Leiden":
-            Clusters_L = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
-            NClasses = len(Clusters_L)
+            ClustersL = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            NClasses = len(ClustersL)
             Clusters = []
-            for i in range(NClasses):
-                if len(Clusters_L[i][0])>0:
-                    Clusters.append(Clusters_L[i][0])
+            for I in range(NClasses):
+                if len(ClustersL[I][0])>0:
+                    Clusters.append(ClustersL[I][0])
             NClasses = len(Clusters)
 
 
         elif Algo=="PCA&HC":
             Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram)
-            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=nc2test, criterion=criterionHC,
+            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram)
+            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=Nc2test, criterion=criterionHC,
                                                  DistanceStr=DistanceStr,
                                                  pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate = SamplingRate)
             NClasses = len(ClustersHC)
             
             Clusters = []
-            for i in range(NClasses):
-                if len(ClustersHC[i])>0:
-                    Clusters.append(ClustersHC[i])
+            for I in range(NClasses):
+                if len(ClustersHC[I])>0:
+                    Clusters.append(ClustersHC[I])
             NClasses = len(Clusters)
 
         elif Algo == "PCA&KM":
             Data, DataPostPCA = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
           
             
         
         elif Algo == "PCA&FCM":
             Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
             MaxIter = 5
-            Clusters, Centers_FCM, membership_mat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=distance)
+            Clusters, CentersFCM, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
             NClasses = len(Clusters)
 
 
         elif Algo =="PCA&Leiden":
             Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            Clusters_L = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
-            NClasses = len(Clusters_L)
+            ClustersL = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            NClasses = len(ClustersL)
             Clusters = []
-            for i in range(NClasses):
-                if len(Clusters_L[i][0])>0:
-                    Clusters.append(Clusters_L[i][0])
+            for I in range(NClasses):
+                if len(ClustersL[I][0])>0:
+                    Clusters.append(ClustersL[I][0])
             NClasses = len(Clusters)
 
         elif Algo=="ICA&HC":
             Data, DataPostICA = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram)
-            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=nc2test, criterion=criterionHC,
+            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram)
+            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=Nc2test, criterion=criterionHC,
                                                  DistanceStr = DistanceStr,
                                                  pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate = SamplingRate)
             NClasses = len(ClustersHC)
             Clusters = []
-            for i in range(NClasses):
-                if len(ClustersHC[i])>0:
-                    Clusters.append(ClustersHC[i])
+            for I in range(NClasses):
+                if len(ClustersHC[I])>0:
+                    Clusters.append(ClustersHC[I])
             NClasses = len(Clusters)
 
         
         elif Algo == "ICA&KM":
             Data, DataPostICA  = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
 
             
         elif Algo == "ICA&FCM":
             Data, DataPostICA   = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
             MaxIter = 5
-            Clusters, CentersFCM, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=distance)
+            Clusters, CentersFCM, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
             NClasses = len(Clusters)
 
 
         elif Algo =="ICA&Leiden":
             Data, DataPostICA   = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            Clusters_L = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
-            NClasses = len(Clusters_L)
+            ClustersL = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            NClasses = len(ClustersL)
             Clusters = []
-            for i in range(NClasses):
-                if len(Clusters_L[i][0])>0:
-                    Clusters.append(Clusters_L[i][0])
+            for I in range(NClasses):
+                if len(ClustersL[I][0])>0:
+                    Clusters.append(ClustersL[I][0])
             NClasses = len(Clusters)
             
         elif Algo=="kernelPCA&HC":
             Data, DataPostPCA  = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
-            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram)
-            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=nc2test, criterion=criterionHC,
+            ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram)
+            ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=Nc2test, criterion=criterionHC,
                                                  DistanceStr = DistanceStr,
                                                  pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate = SamplingRate)
             NClasses = len(ClustersHC)
             Clusters = []
-            for i in range(NClasses):
-                if len(ClustersHC[i])>0:
-                    Clusters.append(ClustersHC[i])
+            for I in range(NClasses):
+                if len(ClustersHC[I])>0:
+                    Clusters.append(ClustersHC[I])
             NClasses = len(Clusters)
 
         
         elif Algo == "kernelPCA&KM":
             Data, DataPostPCA = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
-            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
           
             
         
         elif Algo == "kernelPCA&FCM":
             Data, DataPostPCA  = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
-            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=nc2test, distance=distance, methodKM=methodKM)
+            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
             MaxIter = 5
-            Clusters, CentersFCM, MembershipMat = FCM.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=distance)
+            Clusters, CentersFCM, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
             NClasses = len(Clusters)
 
         return (NClasses, Clusters)
@@ -1196,53 +1196,53 @@ def RecursiveClustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'comple
         NormMode (str): If Normalization applied, to select the modality. Choices: 'min_max_single', 'min_max_global', 'mu_std_single', 'mu_std_global'. Defaults to 'min_max_single'.
     """
     
-    distance = 'd_'+DistanceStr
-    distance = globals()[d]
+    Distance = 'd_'+DistanceStr
+    Distance = globals()[Distance]
         
-    Data_plot = Data.copy()
+    DataPlot = Data.copy()
 
-    distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
-    media = np.mean(Data_plot,0)
+    Distance.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+    Media = np.mean(DataPlot,0)
     SS = 0
-    for i in range(Data_plot.shape[0]):
-        SS += d(Data_plot[i], media)**2
+    for I in range(DataPlot.shape[0]):
+        SS += Distance(DataPlot[I], Media)**2
     Clusters = Clustering(Data=Data, Algo=Algo, DistanceStr=DistanceStr, methodHC = methodHC, criterionHC=criterionHC, methodKM=methodKM, MaxIterFCM=MaxIterFCM, ThresholdVariance=ThresholdVariance, wMax=wMax, g=g, epsilonEDR=epsilonEDR, epsilonLCSS=epsilonLCSS, FuzzyParameter=FuzzyParameter, noise=noise, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=MaxClasses, ThresholdLeiden=ThresholdLeiden, SamplingRate=SamplingRate, pMinkowski =pMinkowski , Normalization=Normalization, NormMode=NormMode) 
     Clusters = Clusters[1]    
-    wcssk_list = [] 
-    wcss_value = 0
-    for j in range(len(Clusters)):
-        wcssk = 0
-        cluster_points = Data_plot[Clusters[j]] 
-        cluster_points=cluster_points.reshape((cluster_points.shape[-2],cluster_points.shape[-1]))
-        center = np.mean(cluster_points,0)
-        for i in range(cluster_points.shape[0]): 
-            wcssk += d(cluster_points[i], center)**2
-        wcss_value+=wcssk
-        wcssk_list.append(wcssk)
-    while max(wcssk_list)>SS/100*25:
-        new_Clusters = [] 
-        for j in range(len(Clusters)):
-            if wcssk_list[j]>SS/100*25:
-                Data = Data_plot.copy()
-                Clusters_j = Clustering(Data=Data[Clusters[j]].reshape(Data[Clusters[j]].shape[-2],Data[Clusters[j]].shape[-1]), Algo=Algo, DistanceStr=DistanceStr, methodHC = methodHC, criterionHC=criterionHC, methodKM=methodKM, MaxIterFCM=MaxIterFCM, ThresholdVariance=ThresholdVariance, wMax=wMax, g=g, epsilonEDR=epsilonEDR, epsilonLCSS=epsilonLCSS, FuzzyParameter=FuzzyParameter, noise=noise, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=MaxClasses, ThresholdLeiden=ThresholdLeiden, SamplingRate=SamplingRate, pMinkowski =pMinkowski , Normalization=Normalization, NormMode=NormMode)
-                Clusters_j = Clusters_j[1] 
-                indexes = np.array(sorted(Clusters[j]))
-                for i in range(len(Clusters_j)):
-                    new_Clusters.append(list(indexes[Clusters_j[i]]))
+    WcsskList = [] 
+    WcssValue = 0
+    for J in range(len(Clusters)):
+        Wcssk = 0
+        ClusterPoints = DataPlot[Clusters[J]] 
+        ClusterPoints=ClusterPoints.reshape((ClusterPoints.shape[-2],ClusterPoints.shape[-1]))
+        Center = np.mean(ClusterPoints,0)
+        for I in range(ClusterPoints.shape[0]): 
+            Wcssk += Distance(ClusterPoints[I], Center)**2
+        WcssValue+=Wcssk
+        WcsskList.append(Wcssk)
+    while max(WcsskList)>SS/100*25:
+        NewClusters = [] 
+        for J in range(len(Clusters)):
+            if WcsskList[J]>SS/100*25:
+                Data = DataPlot.copy()
+                ClustersJ = Clustering(Data=Data[Clusters[J]].reshape(Data[Clusters[J]].shape[-2],Data[Clusters[J]].shape[-1]), Algo=Algo, DistanceStr=DistanceStr, methodHC = methodHC, criterionHC=criterionHC, methodKM=methodKM, MaxIterFCM=MaxIterFCM, ThresholdVariance=ThresholdVariance, wMax=wMax, g=g, epsilonEDR=epsilonEDR, epsilonLCSS=epsilonLCSS, FuzzyParameter=FuzzyParameter, noise=noise, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=MaxClasses, ThresholdLeiden=ThresholdLeiden, SamplingRate=SamplingRate, pMinkowski =pMinkowski , Normalization=Normalization, NormMode=NormMode)
+                ClustersJ = ClustersJ[1] 
+                Indexes = np.array(sorted(Clusters[J]))
+                for I in range(len(ClustersJ)):
+                    NewClusters.append(list(Indexes[ClustersJ[I]]))
             else:
-                new_Clusters.append(Clusters[j])
-        Clusters = new_Clusters
-        wcssk_list = [] 
-        wcss_value = 0
-        for j in range(len(Clusters)):
-            wcssk = 0
-            cluster_points = Data_plot[Clusters[j]] 
-            cluster_points=cluster_points.reshape((cluster_points.shape[-2],cluster_points.shape[-1]))
-            center = np.mean(cluster_points,0)
-            for i in range(cluster_points.shape[0]): 
-                wcssk += distance(cluster_points[i], center)**2
-            wcss_value+=wcssk
-            wcssk_list.append(wcssk)
+                NewClusters.append(Clusters[J])
+        Clusters = NewClusters
+        WcsskList = [] 
+        WcssValue = 0
+        for J in range(len(Clusters)):
+            Wcssk = 0
+            ClusterPoints = DataPlot[Clusters[J]] 
+            ClusterPoints=ClusterPoints.reshape((ClusterPoints.shape[-2],ClusterPoints.shape[-1]))
+            Center = np.mean(ClusterPoints,0)
+            for I in range(ClusterPoints.shape[0]): 
+                Wcssk += Distance(ClusterPoints[I], Center)**2
+            WcssValue+=Wcssk
+            WcsskList.append(Wcssk)
     
     return (len(Clusters),Clusters)
     
@@ -1259,8 +1259,8 @@ def ClusterCentroids(Data, Clusters):
     """
     NClasses = len(Clusters[1])
     Centroids = np.zeros((NClasses, Data.shape[1]))
-    for i in range(NClasses):
-        Centroids[i]=np.mean(Data[Clusters[1][i]],0)
+    for I in range(NClasses):
+        Centroids[I]=np.mean(Data[Clusters[1][I]],0)
     return Centroids 
 
 def Classification(Centroids, Data, DistanceStr='m', pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
@@ -1273,25 +1273,25 @@ def Classification(Centroids, Data, DistanceStr='m', pMinkowski  = 2, wMax = 1, 
         DistanceStr (str): metric to compute distances. Defaults to 'ed'.
     
     Returns:
-        classification (list): Clusters obtained from the Dataset assigning each Data to the class of the closest centroid.
+        Classification (list): Clusters obtained from the Dataset assigning each Data to the class of the closest centroid.
     """
-    distance = 'd_'+DistanceStr
-    metric = globals()[distance]
-    metric.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
-    n = Data.shape[0]
-    x = Data.shape[1] 
-    c = Centroids.shape[0] 
-    classification = []  
-    for i in range(n):
-        distances = [] 
-        for j in range(c):
-            distances.append(metric(Data[i],Centroids[j]))
-        distances = np.array(distances)
-        idx_m = np.where(distances==min(distances))[0][0] 
-        idx_m = int(idx_m)
-        classification.append(idx_m)
+    Distance = 'd_'+DistanceStr
+    Metric = globals()[Distance]
+    Metric.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+    N = Data.shape[0]
+    X = Data.shape[1] 
+    C = Centroids.shape[0] 
+    Classification = []  
+    for I in range(N):
+        Distances = [] 
+        for J in range(C):
+            Distances.append(Metric(Data[I],Centroids[J]))
+        Distances = np.array(Distances)
+        IdxM = np.where(Distances==min(Distances))[0][0] 
+        IdxM = int(IdxM)
+        Classification.append(IdxM)
 
-    return classification
+    return Classification
 
 def GaussianNoise(Data, noise, seed):
     """
@@ -1306,11 +1306,11 @@ def GaussianNoise(Data, noise, seed):
         Data (np.ndarray): 2D matrix representing the Dataset after the adding of noise.
     """
     np.random.seed(seed)
-    for i in range(len(Data)):
-        sigma = np.std(Data[i])
-        if sigma == 0:
-            Data[i] = Data[i]+noise*np.random.normal(0,1,len(Data[i]))
+    for I in range(len(Data)):
+        Sigma = np.std(Data[I])
+        if Sigma == 0:
+            Data[I] = Data[I]+noise*np.random.normal(0,1,len(Data[I]))
         else:
-            Data[i] = Data[i]+noise*np.random.normal(0,sigma,len(Data[i]))
+            Data[I] = Data[I]+noise*np.random.normal(0,Sigma,len(Data[I]))
 
     return Data
