@@ -4,7 +4,7 @@ import warnings
 np.warnings = warnings
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import minkowski
-from scipy.cluster.hierarchy import dendrogram, linkage, fclusterData
+from scipy.cluster.hierarchy import dendrogram, linkage, FclusterData
 from sklearn.cluster import AgglomerativeClustering, KMeans
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from sklearn.decomposition import PCA, FastICA, KernelPCA
@@ -32,7 +32,7 @@ def d_m(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS 
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
         wMax (int): Unused. Defaults to 1.
-        pMinkowski  (int): parameter. Defaults to 2 (euclidean distance).
+        pMinkowski (int): parameter. Defaults to 2 (euclidean distance).
         g (int): Unused. Defaults to 1.
         epsilonEDR (float): Unused. Defaults to 0.001.
         epsilonLCSS (float): Unused. Defaults to 0.001.
@@ -152,7 +152,7 @@ def d_dtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCS
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        pMinkowski  (int): Unused. Defaults to 2.
+        pMinkowski (int): Unused. Defaults to 2.
         wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
         epsilonEDR (float): Unused. Defaults to 0.001.
@@ -199,7 +199,7 @@ def d_ddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        pMinkowski  (int): Unused. Defaults to 2.
+        pMinkowski (int): Unused. Defaults to 2.
         wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
         epsilonEDR (float): Unused. Defaults to 0.001.
@@ -225,7 +225,7 @@ def d_wdtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        pMinkowski  (int): Unused. Defaults to 2.
+        pMinkowski (int): Unused. Defaults to 2.
         wMax (int): upper bound of the weights. Defaults to 1.
         g (int): exponential parameter. Defaults to 1.
         epsilonEDR (float): Unused. Defaults to 0.001.
@@ -240,8 +240,6 @@ def d_wdtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
     if l1 != l2:
         print('vectors with not equal length')
     else:
-        #wMax = 1 #da mettere a scelta dell'utente
-        #g = 1 #da mettere a scelta dell'utente
         M = MatrixM(a, b)
         M = MatrixMw(M, wMax, g)
         C = MatrixC(M)        
@@ -254,8 +252,8 @@ def MatrixMw(M, wMax, g):
     
     Args:
         M (np.ndarray): matrix of the ed distances between the entries of two vectors.
-        wMax (float): parameter for the weigths.
-        g (float): parameter for the weigths.
+        wMax (float): parameter for the weights.
+        g (float): parameter for the weights.
     
     Returns:
         Mw (np.ndarray): Matrix of the punctual distances between the entries of two vectors but with weights based on the indexes of the entries.
@@ -274,7 +272,7 @@ def d_wddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonL
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        pMinkowski  (int): Unused. Defaults to 2.
+        pMinkowski (int): Unused. Defaults to 2.
         wMax (int): upper bound of the weights. Defaults to 1.
         g (int): exponential parameter. Defaults to 1.
         epsilonEDR (float): Unused. Defaults to 0.001.
@@ -295,7 +293,7 @@ def d_lcss(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        pMinkowski  (int): Unused. Defaults to 2.
+        pMinkowski (int): Unused. Defaults to 2.
         wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
         epsilonEDR (float): Unused. Defaults to 0.001.
@@ -332,7 +330,7 @@ def d_edr(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCS
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        pMinkowski  (int): Unused. Defaults to 2.
+        pMinkowski (int): Unused. Defaults to 2.
         wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
         epsilonEDR (float): Threshold. Defaults to 0.001.
@@ -373,7 +371,7 @@ def d_rho_2 (a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilon
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        pMinkowski  (int): Unused. Defaults to 2.
+        pMinkowski (int): Unused. Defaults to 2.
         wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
         epsilonEDR (float): Unused. Defaults to 0.001.
@@ -400,7 +398,7 @@ def d_sts(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCS
     Args:
         a (np.ndarray): first time series.
         b (np.ndarray): second time series.
-        pMinkowski  (int): Unused. Defaults to 2.
+        pMinkowski (int): Unused. Defaults to 2.
         wMax (int): Unused. Defaults to 1.
         g (int): Unused. Defaults to 1.
         epsilonEDR (float): Unused. Defaults to 0.001.
@@ -427,7 +425,7 @@ def AdjacencyMatrix(Data, DistanceStr = 'm', pMinkowski  = 2, wMax = 1, g = 1, e
     Args:
         Data (np.ndarray): 2D matrix representing the Dataset.
         DistanceStr (str): metric used to compute distances. Defaults to 'm'.
-        pMinkowski  (int): Minkowski parameter. Defaults to 2.
+        pMinkowski (int): Minkowski parameter. Defaults to 2.
         wMax (int): WDTW and WDDTW parameter. Defaults to 1.
         g (int): WDTW and WDDTW parameter. Defaults to 1.
         epsilonEDR (float): EDR threshold. Defaults to 0.001.
@@ -542,13 +540,13 @@ def WhiteningGlobal(Data):
 
 '''AlgoRITHMS'''
 
-def Dendrogram(Data, distance, methodHC ='complete', ThresholdDendrogram=0.7):
+def Dendrogram(Data, Distance, methodHC ='complete', ThresholdDendrogram=0.7):
     """
     Given a Dataset, a metric, a method and a threshold, the function returns the dendrogram plot of the chosen hierarchical.
     
     Args:
         Data (np.ndarray): 2D matrix representing the Dataset.
-        distance (str): metric used to compute distances.
+        Distance (str): metric used to compute Distances.
         methodHC (str): linkage method.
         ThresholdDendrogram (float): threshold between 0 and 1 that multiplied with the height of the dendrogram represent the height at which we want to cut it.
     
@@ -557,7 +555,7 @@ def Dendrogram(Data, distance, methodHC ='complete', ThresholdDendrogram=0.7):
     """
 
     try:
-        LinkageData = linkage(Data, method = methodHC, metric = distance)
+        LinkageData = linkage(Data, method = methodHC, metric = Distance)
         n = len(Data)
         AggregationLevels = LinkageData[:,2]
         max_d = ThresholdDendrogram * AggregationLevels[n-2]
@@ -573,19 +571,19 @@ def Dendrogram(Data, distance, methodHC ='complete', ThresholdDendrogram=0.7):
     # '''
     return max_d
 
-def HierarchicalClustering(Data, methodHC, distance, ThresholdDendrogram, MaxClasses, criterion, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate):
+def HierarchicalClustering(Data, methodHC, Distance, ThresholdDendrogram, MaxClasses, criterion, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate):
     """
     Given a Dataset, a distance, a method and a threshold, the function returns the Clusters built by the chosen hierarchical.
     
     Args:
         Data (np.ndarray): 2D matrix representing the Dataset.
         methodHC (str): linkage method.
-        distance (function): metric used to compute distances.
+        Distance (function): metric used to compute distances.
         ThresholdDendrogram (float): height at which we cut the dendrogram to form Clusters.
         MaxClasses (int): maximum number of classes to obtain from the clustering.
         criterion (str): clustering criterion.
         DistanceStr (str): metric used to compute distances.
-        pMinkowski  (int): Defaults to 2.
+        pMinkowski (int): Defaults to 2.
         wMax (int): upper bound of the weights. Defaults to 1.
         g (int): exponential parameter. Defaults to 1.
         epsilonEDR (float): Defaults to 0.001.
@@ -596,29 +594,29 @@ def HierarchicalClustering(Data, methodHC, distance, ThresholdDendrogram, MaxCla
         Clusters (list): Clusters of the applied Algorithm.
     """
     if criterion == 'distance':
-        fclust = fclusterData(Data, ThresholdDendrogram, criterion = 'distance', metric = distance, method = methodHC)
+        Fclust = FclusterData(Data, ThresholdDendrogram, criterion = 'distance', metric = Distance, method = methodHC)
 
     elif criterion=='maxclust':
         if type(MaxClasses) == int:
             kElbow = MaxClasses
-            fclust = fclusterData(Data, kElbow, criterion = 'maxclust', metric = distance, method = methodHC) 
+            Fclust = FclusterData(Data, kElbow, criterion = 'maxclust', metric = Distance, method = methodHC) 
         else:
             score = -1000
             for kElbow in MaxClasses:
                 print(kElbow)
-                fclust_aux = fclusterData(Data, kElbow, criterion = 'maxclust', metric = distance, method = methodHC) 
-                Clusters_aux = []
-                for i in range(max(fclust_aux)):
-                    indexes = np.where(fclust_aux==i+1)[0]
-                    Clusters_aux.append(indexes)
-                Clusters_aux = [max(fclust_aux), Clusters_aux]
-                score_aux  = Silhouette(Data, Clusters_aux, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
-                if score_aux>score:
-                    score = score_aux
-                    fclust = fclust_aux
+                FclustAux = FclusterData(Data, kElbow, criterion = 'maxclust', metric = Distance, method = methodHC) 
+                ClustersAux = []
+                for i in range(max(FclustAux)):
+                    indexes = np.where(FclustAux==i+1)[0]
+                    ClustersAux.append(indexes)
+                ClustersAux = [max(FclustAux), ClustersAux]
+                ScoreAux  = Silhouette(Data, ClustersAux, DistanceStr, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
+                if ScoreAux>score:
+                    score = ScoreAux
+                    Fclust = FclustAux
     Clusters = []
-    for i in range(max(fclust)):
-        indexes = np.where(fclust==i+1)[0]
+    for i in range(max(Fclust)):
+        indexes = np.where(Fclust==i+1)[0]
         Clusters.append(indexes)
     
     return Clusters
@@ -668,13 +666,13 @@ def Kshape_Algo(Data, nc2test, methodKM='silhouette'):
 
             if len(np.unique(labels)) > 1:
                 # per silhouette usiamo i dati originali 2D (n_samples x n_timesteps)
-                Data_2d = DataScaled.reshape(DataScaled.shape[0], -1)
+                Data2d = DataScaled.reshape(DataScaled.shape[0], -1)
                 if methodKM == 'silhouette':
-                    score = silhouette_score(Data_2d, labels, sample_size=1000, random_state=42)
+                    score = silhouette_score(Data2d, labels, sample_size=1000, random_state=42)
                 elif methodKM == 'davies_bouldin':
-                    score = davies_bouldin_score(Data_2d, labels)
+                    score = davies_bouldin_score(Data2d, labels)
                 elif methodKM == 'calinski_harabasz':
-                    score = calinski_harabasz_score(Data_2d, labels)
+                    score = calinski_harabasz_score(Data2d, labels)
                 elif methodKM == 'wcss':
                     score = wcss
             else:
@@ -694,8 +692,8 @@ def Kshape_Algo(Data, nc2test, methodKM='silhouette'):
                     best_Centers = ks.cluster_Centers_
 
             print(f"For n_Centroids = {nClusters}, {methodKM} score is {score}")
-            print(f"For n_Centroids = {nClusters}, davies_bouldin score is {davies_bouldin_score(Data_2d, labels)}")
-            print(f"For n_Centroids = {nClusters}, calinski_harabasz score is {calinski_harabasz_score(Data_2d, labels)}")
+            print(f"For n_Centroids = {nClusters}, davies_bouldin score is {davies_bouldin_score(Data2d, labels)}")
+            print(f"For n_Centroids = {nClusters}, calinski_harabasz score is {calinski_harabasz_score(Data2d, labels)}")
             print(f"For n_Centroids = {nClusters}, wcss score is {wcss}")
 
             iterations.append(score)
@@ -743,11 +741,11 @@ def Kmeans_Algo(Data, nc2test, distance, methodKM = 'silhouette'):
             StartCenters = kmeans_plusplus_initializer(Data, nClusters).initialize();
             KmeansInstance = kmeans(Data, StartCenters, metric=metric)
             # run cluster analysis and obtain results
-            kmeans_instance.process()
-            Clusters = kmeans_instance.get_Clusters()
+            KmeansInstance.process()
+            Clusters = KmeansInstance.get_Clusters()
             nClusters_postK = len(Clusters)
             classi.append((nClusters_postK, Clusters))
-            Centers.append(kmeans_instance.get_Centers())
+            Centers.append(KmeansInstance.get_Centers())
             labels = np.array(range(n))
             wcss = 0
             for j in range(len(Clusters)):
@@ -778,7 +776,6 @@ def Kmeans_Algo(Data, nc2test, distance, methodKM = 'silhouette'):
                     BestScore = score
                     cBest = nClusters
                
-     
             print(f"For n_Centroids = {nClusters}, {methodKM} score is {score}")
             print(f"For n_Centroids = {nClusters}, davies_bouldin score is {davies_bouldin_score(Data, labels)}")
             print(f"For n_Centroids = {nClusters}, calinski_harabasz score is {calinski_harabasz_score(Data, labels)}")
@@ -805,15 +802,15 @@ def Kmeans_Algo(Data, nc2test, distance, methodKM = 'silhouette'):
         return classi[IdxBest][1], classi[IdxBest][0], Centers[IdxBest] 
     
 
-def Silhouette(Data, Clusters, distance, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate):
+def Silhouette(Data, Clusters, Distance, pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate):
     """
     silhouette score of the Clusters given the distance and the parameters of the distance.
     
     Args:
         Data (np.ndarray): 2D matrix representing the Dataset.
         Clusters (tuple): number of Clusters and Clusters obtained by the clustering Algorithm applied.
-        distance (str): metric used to compute distances.
-        pMinkowski  (int): Defaults to 2.
+        Distance (str): metric used to compute distances.
+        pMinkowski (int): Defaults to 2.
         wMax (int): upper bound of the weights. Defaults to 1.
         g (int): exponential parameter. Defaults to 1.
         epsilonEDR (float): Defaults to 0.001.
@@ -824,7 +821,7 @@ def Silhouette(Data, Clusters, distance, pMinkowski , wMax, g, epsilonEDR, epsil
     for j in range(Clusters[0]):
         labels[Clusters[1][j]] = j+1
     if len(np.unique(labels))>1:
-        d = 'd_'+distance
+        d = 'd_'+Distance
         d = globals()[d]
         d.__defaults__ = (pMinkowski , wMax, g, epsilonEDR, epsilonLCSS, SamplingRate)
         score = silhouette_score(Data, labels, metric=d)
@@ -911,7 +908,7 @@ def Leiden_Algo(Data, ThresholdLeiden=0.95, DistanceStr = 'm', pMinkowski  = 2, 
         Data (np.ndarray): 2D matrix representing the Dataset.
         ThresholdLeiden (float): if graph based on Pearson's correlation coefficient we put to zero the weights of the edges under the threshold. Defaults to 0.95.
         DistanceStr (str): metric to compute the adjacency matrix. Defaults to 'm'.
-        pMinkowski  (int): Minkowski parameter. Defaults to 2.
+        pMinkowski (int): Minkowski parameter. Defaults to 2.
         wMax (int): WDTW and WDDTW parameter. Defaults to 1.
         g (int): WDTW and WDDTW parameter. Defaults to 1.
         epsilonEDR (float): EDR threshold. Defaults to 0.001.
@@ -970,7 +967,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
         MaxClasses (list): Classes to test. Defaults to [2].
         ThresholdLeiden (float): Leiden threshold. Defaults to 0.9.
         SamplingRate (int): STS parameter. Defaults to 1000.
-        pMinkowski  (int): Minkowski parameter. Defaults to 2.
+        pMinkowski (int): Minkowski parameter. Defaults to 2.
         Normalization (str): To applying Normalization. Choices: 'ON', 'OFF'. Defaults to 'OFF'.
         NormMode (str): If Normalization applied, to select the modality. Choices: 'min_max_single', 'min_max_global', 'mu_std_single', 'mu_std_global'. Defaults to 'min_max_single'.
         ica_ncomp (int): the number of components for ICA.
@@ -1195,7 +1192,7 @@ def RecursiveClustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'comple
         MaxClasses (int): maximum number of classes. Defaults to 1.
         ThresholdLeiden (float): Leiden threshold. Defaults to 0.9.
         SamplingRate (int): STS parameter. Defaults to 1000.
-        pMinkowski  (int): Minkowski parameter. Defaults to 2.
+        pMinkowski (int): Minkowski parameter. Defaults to 2.
         Normalization (str): To applying Normalization. Choices: 'ON', 'OFF'. Defaults to 'OFF'.
         NormMode (str): If Normalization applied, to select the modality. Choices: 'min_max_single', 'min_max_global', 'mu_std_single', 'mu_std_global'. Defaults to 'min_max_single'.
     """

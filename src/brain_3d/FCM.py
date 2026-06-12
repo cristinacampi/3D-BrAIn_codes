@@ -72,7 +72,7 @@ def CalculateClusterCenters(Data, MembershipMat, NPoints, NClasses, FuzzyParamet
     return ClusterCenters
 
 
-def UpdateMembershipValue(Data, MembershipMat, NPoints, NClasses, FuzzyParameter, ClusterCenters, metric):
+def UpdateMembershipValue(Data, MembershipMat, NPoints, NClasses, FuzzyParameter, ClusterCenters, Metric):
     """Update membership matrix based on distances to cluster Metric.
     
     Args:

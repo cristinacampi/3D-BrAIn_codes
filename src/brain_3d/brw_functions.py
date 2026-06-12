@@ -15,9 +15,9 @@ from statistics import median
 import plotly.express as px
 import json
 
-def ReadBRW(filename, wellID):
+def ReadBRW(Filename, WellID):
     """
-    Read brw file, return the brw data and print some information about the file:
+    Read BRW file, return the BRW data and print some information about the file:
     -file's name;
     -data and time of the recording;
     -number of channels;
@@ -26,64 +26,64 @@ def ReadBRW(filename, wellID):
     -sampling frequency
     
     Args:
-        filename (str): name of the file and its extension .brw.
-        wellID (str): identifier of the selected well.
+        Filename (str): name of the file and its extension .BRW.
+        WellID (str): identifier of the selected well.
     
     Returns:
-        brw (h5py): the brw data.
+        BRW (h5py): the BRW data.
     """
-    brw = h5py.File(filename)
+    BRW = h5py.File(Filename)
 
-    Toc = np.array(brw['TOC'])
+    Toc = np.array(BRW['TOC'])
     NumFrames = Toc[Toc.shape[0]-1,1] 
     try:
-        SamplingRate = brw.attrs['SamplingRate']
-        NumChannels = np.array(brw[wellID + '/StoredChIdxs']).shape[0]
+        SamplingRate = BRW.attrs['SamplingRate']
+        NumChannels = np.array(BRW[WellID + '/StoredChIdxs']).shape[0]
     except KeyError:
-        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
         NumChannels = len(info['CorePlateData']['StoredPlateElIdxs']) 
 
     Duration = NumFrames/SamplingRate
 
-    print('--- File: ' + filename + ' ---')
+    print('--- File: ' + Filename + ' ---')
     print('Number of Channels: ' + str(NumChannels))
     print('File Duration: ' + str(Duration))
     print('Total Number of Frames: ' + str(NumFrames))
     print('Sampling Frequency: ' + str(SamplingRate) + ' Hz')
     print('---')
 
-    return brw, SamplingRate, NumChannels, Duration, NumFrames
+    return BRW, SamplingRate, NumChannels, Duration, NumFrames
 
-def DecodeEventBasedRawData(brw, data, wellID, StartTime=0, Duration=0.05):
+def DecodeEventBasedRawData(BRW, Data, WellID, StartTime=0, Duration=0.05):
     """
     FROM 3BRAIN
     
     Args:
-        brw (BrwFile): file brw opened from its path.
-        data (dictionary): the keys are the recorded channel indexes StoredChIdxs and the values an array initialized with numFrames zeros for each key.
-        wellID (str): identifier of the selected well.
+        BRW (BrwFile): file BRW opened from its path.
+        Data (dictionary): the keys are the recorded channel indexes StoredChIdxs and the values an array initialized with numFrames zeros for each key.
+        WellID (str): identifier of the selected well.
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
     
     Returns:
-        data (list): The returned data list contains digital samples that can be converted into analog values.
+        Data (list): The returned data list contains digital samples that can be converted into analog values.
     """
     try:
-        SamplingRate = brw.attrs['SamplingRate']
+        SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
-        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
         
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate * (StartTime + Duration))
     
     # collect the TOCs
-    Toc = np.array(brw['TOC']) #dà errore con i dati vecchi (ho provato DataSet_02)
+    Toc = np.array(BRW['TOC']) #dà errore con i dati vecchi (ho provato DataSet_02)
     if EndFrame < StartFrame:
         EndFrame = Toc[Toc.shape[0]-1,1]
     
-    EventsToc = np.array(brw[wellID + '/EventsBasedSparseRawTOC'])
+    EventsToc = np.array(BRW[WellID + '/EventsBasedSparseRawTOC'])
     # from the given start position and Duration in frames, localize the corresponding event positions
     # using the TOC
     TocStartIdx = np.searchsorted(Toc[:, 1], StartFrame)
@@ -91,7 +91,7 @@ def DecodeEventBasedRawData(brw, data, wellID, StartTime=0, Duration=0.05):
     EventsStartPosition = EventsToc[TocStartIdx]
     EventsEndPosition = EventsToc[TocEndIdx]
     # decode all data for the given well ID and time interval
-    BinaryData = brw[wellID + '/EventsBasedSparseRaw'][EventsStartPosition:EventsEndPosition]
+    BinaryData = BRW[WellID + '/EventsBasedSparseRaw'][EventsStartPosition:EventsEndPosition]
     BinaryDataLength = len(BinaryData)
     pos = 0
     while pos < BinaryDataLength:
@@ -115,15 +115,15 @@ def DecodeEventBasedRawData(brw, data, wellID, StartTime=0, Duration=0.05):
                 RangeDataPos += 2
             pos += (ToExclusive - FromInclusive) * 2
 
-    return data 
+    return Data 
 
-def ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05): 
+def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05): 
     """
     Read raw data from a BRW file for a specified time interval and downsampling frequency.
     
     Args:
-        brw (BrwFile): file brw opened from its path.
-        wellID (str): identifier of the selected well.
+        BRW (BrwFile): file BRW opened from its path.
+        WellID (str): identifier of the selected well.
         DownsamplingFrequency (float): chosen sampling frequency.
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
@@ -133,21 +133,21 @@ def ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration =
         Frames2Save (np.ndarray): array that contains the frames relative to measurements in AuxData.
     """
     try:
-        SamplingRate = brw.attrs['SamplingRate']
+        SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
-        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
         
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate *(StartTime+Duration))
     # collect experiment information
     try:
-        MinDigitalValue = brw.attrs['MinDigitalValue']
-        MaxDigitalValue = brw.attrs['MaxDigitalValue']
-        MinAnalogValue = brw.attrs['MinAnalogValue']
-        MaxAnalogValue = brw.attrs['MaxAnalogValue']
+        MinDigitalValue = BRW.attrs['MinDigitalValue']
+        MaxDigitalValue = BRW.attrs['MaxDigitalValue']
+        MinAnalogValue = BRW.attrs['MinAnalogValue']
+        MaxAnalogValue = BRW.attrs['MaxAnalogValue']
     except KeyError:
-        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         MinDigitalValue = info['SignalConverter']['DigitalToAnalogConverter']['MinDigitalValue']        
         MaxDigitalValue = info['SignalConverter']['DigitalToAnalogConverter']['MaxDigitalValue']        
         MinAnalogValue  = info['SignalConverter']['DigitalToAnalogConverter']['MinAnalogValueMicroVolt'] 
@@ -155,46 +155,46 @@ def ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration =
     DacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
     OffsetValue = MinAnalogValue - DacFactor * MinDigitalValue
 
-    Toc = np.array(brw['TOC'])
+    Toc = np.array(BRW['TOC'])
     if EndFrame < StartFrame:
             EndFrame = Toc[Toc.shape[0]-1,1]
 
     try:
-        ChIdxs = np.array(brw[wellID + '/StoredChIdxs'])
+        ChIdxs = np.array(BRW[WellID + '/StoredChIdxs'])
     except KeyError:
-        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         ChIdxs = np.array(info['CorePlateData']['StoredPlateElIdxs'])
     ChIdxs.sort()#
     NCh = len(ChIdxs)#
     NumChannels = ChIdxs.shape[0]
 
-    if 'EventsBasedSparseRawTOC' in brw[wellID]:
+    if 'EventsBasedSparseRawTOC' in BRW[WellID]:
         DataDict = {}
         for ChIdx in ChIdxs:
             DataDict[ChIdx] = np.zeros(EndFrame-StartFrame, dtype=np.int16) 
-        DataDict = DecodeEventBasedRawData(brw, DataDict, wellID, StartTime, Duration)
+        DataDict = DecodeEventBasedRawData(BRW, DataDict, WellID, StartTime, Duration)
 
         data = np.zeros((EndFrame-StartFrame, NCh))
         for d in range(NCh):
             data[:, d] = np.array(DataDict[ChIdxs[d]], dtype=float)
 
 
-    elif 'Raw' in brw[wellID]:
-        AuxData = brw[wellID + '/Raw'] 
+    elif 'Raw' in BRW[WellID]:
+        AuxData = BRW[WellID + '/Raw'] 
         AuxData = AuxData[StartFrame*NumChannels:EndFrame*NumChannels]
         data = np.reshape(AuxData, (EndFrame-StartFrame, NumChannels))
 
-    elif 'WaveletBasedEncodedRaw' in brw[wellID]: 
-        CoefsTotalLength = len(brw[wellID + '/WaveletBasedEncodedRaw'])
-        CompressionLevel = brw[wellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
-        FramesChunkLength = brw[wellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
+    elif 'WaveletBasedEncodedRaw' in BRW[WellID]: 
+        CoefsTotalLength = len(BRW[WellID + '/WaveletBasedEncodedRaw'])
+        CompressionLevel = BRW[WellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
+        FramesChunkLength = BRW[WellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
         CoefsChunkLength = math.ceil(FramesChunkLength/pow(2, CompressionLevel))*2
         for ChIdx in ChIdxs:
             t = time.time()
             data = []
             coefsPosition = ChIdx * CoefsChunkLength
             while coefsPosition < CoefsTotalLength:
-                coefs = brw[wellID + '/WaveletBasedEncodedRaw'][coefsPosition:coefsPosition+CoefsChunkLength]
+                coefs = BRW[WellID + '/WaveletBasedEncodedRaw'][coefsPosition:coefsPosition+CoefsChunkLength]
                 length = int(len(coefs)/2)
                 frames = pywt.idwt(coefs[:length], coefs[length:], 'sym7', 'periodization') 
                 length *= 2
@@ -203,10 +203,8 @@ def ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration =
                     length *= 2
                 data.extend(frames)
                 coefsPosition += CoefsChunkLength * NumChannels
-            print(time.time()-t) 
-            print("un canale")   
-        brw.close()
-
+            print(time.time()-t)  
+        BRW.close()
 
     Step = int(SamplingRate/DownsamplingFrequency)
 
@@ -224,14 +222,14 @@ def ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration =
 
     return AuxData, Frames2Save+StartFrame
 
-def ReadingSingleChannel(brw, wellID, DownsamplingFrequency, row, col, StartTime = 0, Duration = 0.05):#to modify 
+def ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime = 0, Duration = 0.05):#to modify 
     """
     Selected a BRW file, a well and a channel in the well,
     this function reads the activity signal of the channel during the experiment
     
     Args:
-        brw (BrwFile): file brw opened from its path.
-        wellID (str): identifier of the selected well.
+        BRW (BrwFile): file BRW opened from its path.
+        WellID (str): identifier of the selected well.
         DownsamplingFrequency (float): chosen sampling frequency.
         row (int): number from 0 to the maximum number of channel rows.
         col (int): number from 0 to the maximum number of channel columns.
@@ -243,24 +241,24 @@ def ReadingSingleChannel(brw, wellID, DownsamplingFrequency, row, col, StartTime
         Frames2Save (np.ndarray): array that contains the frames relative to measurements in AuxData.
     """
 
-    Data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
+    Data, Frames2Save = ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime, Duration)
     try:
-        NumChannels = np.array(brw[wellID + '/StoredChIdxs']).shape[0]
+        NumChannels = np.array(BRW[WellID + '/StoredChIdxs']).shape[0]
     except KeyError:
-        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         NumChannels = len(info['CorePlateData']['StoredPlateElIdxs']) 
     AuxData = Data[:,row*NumChannels+col]
 
     return AuxData, Frames2Save
 
-def PlotRawData(brw, wellID, title, DownsamplingFrequency, row, col, StartTime=0, Duration=0.05): 
+def PlotRawData(BRW, WellID, title, DownsamplingFrequency, row, col, StartTime=0, Duration=0.05): 
     """
     Selected a BRW file, a well and a channel in the well,
     this function prints a graphic of the channel activity signal
     
     Args:
-        brw (BrwFile): file brw opened from its path.
-        wellID (str): identifier of the selected well.
+        BRW (BrwFile): file BRW opened from its path.
+        WellID (str): identifier of the selected well.
         DownsamplingFrequency (float): chosen sampling frequency.
         row (int): number from 0 to 63 that selects the row of the channel in the well.
         col (int): number from 0 to 63 that selects the column of the channel in the well.
@@ -268,15 +266,15 @@ def PlotRawData(brw, wellID, title, DownsamplingFrequency, row, col, StartTime=0
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
     """
     try:
-        SamplingRate = brw.attrs['SamplingRate']
+        SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
-        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
    
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate *(StartTime+Duration))
    
-    y, Frames2Save = ReadingSingleChannel(brw, wellID, DownsamplingFrequency, row, col, StartTime, Duration)
+    y, Frames2Save = ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime, Duration)
     x = Frames2Save/SamplingRate
     y = np.transpose(y)
 
@@ -288,14 +286,14 @@ def PlotRawData(brw, wellID, title, DownsamplingFrequency, row, col, StartTime=0
     plt.savefig(title+".png")
     plt.show()
 
-def SingleChannelFramesWithPeaks(brw, wellID, DownsamplingFrequency, row, col, StartTime=0, Duration = 0.05, Threshold=0):
+def SingleChannelFramesWithPeaks(BRW, WellID, DownsamplingFrequency, row, col, StartTime=0, Duration = 0.05, Threshold=0):
     """
     This function returns the frames for the channel define by row and colum
     where we have a peak larger than a threshold defined by the user
     
     Args:
-        brw (BrwFile): file brw opened from its path.
-        wellID (str): identifier of the selected well.
+        BRW (BrwFile): file BRW opened from its path.
+        WellID (str): identifier of the selected well.
         DownsamplingFrequency (float): chosen sampling frequency.
         row (int): number from 0 to 63 that selects the row of the channel in the well.
         col (int): number from 0 to 63 that selects the column of the channel in the well.
@@ -306,20 +304,20 @@ def SingleChannelFramesWithPeaks(brw, wellID, DownsamplingFrequency, row, col, S
     Returns:
         FramesWithPeaks (np.ndarray): array that contains the frames of the peaks.
     """
-    y, Frames2Save = ReadingSingleChannel(brw, wellID, DownsamplingFrequency, row, col, StartTime, Duration)
+    y, Frames2Save = ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime, Duration)
     y = np.transpose(y)
     peaks = scipy.signal.find_peaks(y, threshold=Threshold)
     FramesWithPeaks = Frames2Save[peaks[0]]
     return FramesWithPeaks
 
-def FramesWithPeaks(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05, Percentage = 0, Threshold=0):
+def FramesWithPeaks(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05, Percentage = 0, Threshold=0):
     """
     This function returns the frames where we have peaks
     larger or lower than a threshold defined by the user
     
     Args:
-        brw (BrwFile): file brw opened from its path.
-        wellID (str): identifier of the selected well.
+        BRW (BrwFile): file BRW opened from its path.
+        WellID (str): identifier of the selected well.
         DownsamplingFrequency (float): chosen sampling frequency.
         StartTime (float, optional): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
@@ -331,7 +329,7 @@ def FramesWithPeaks(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration 
         FramesUnderPerc (list): it contains the frames with a number of peaks smaller than Percentage*NumChannels.
         FramesOverPerc (list): it contains the frames with a number of peaks larger than Percentage*NumChannels.
     """
-    Data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
+    Data, Frames2Save = ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime, Duration)
     NumChannels = Data.shape[1]
     NumFrames2Save = len(Frames2Save)
     MatrixPeaks = np.zeros((NumFrames2Save, NumChannels))
@@ -352,7 +350,7 @@ def FramesWithPeaks(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration 
     
     return  MatrixPeaks, FramesUnderPerc, FramesOverPerc
 
-def BRW2df(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05): 
+def BRW2df(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05): 
 
     """
     Selected a BrwFile and a well, this function creates 2 dataframe:
@@ -360,8 +358,8 @@ def BRW2df(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
     - one with the evolution over time of the activity maps of the well
     
     Args:
-        brw (BrwFile): file brw opened from its path.
-        wellID (str): identifier of the selected well.
+        BRW (BrwFile): file BRW opened from its path.
+        WellID (str): identifier of the selected well.
         DownsamplingFrequency (float): chosen sampling frequency.
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
@@ -369,34 +367,34 @@ def BRW2df(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
     Returns:
         DataFrame, DataFrame: -DfXY is a pandas dataframe where we saved the couples (X,Y) that indicate the coordinates of the channels (we read channels row by row). -DfAL is a pandas data frame where we saved frames and their respective activity maps vectorized like we read channels.
     """
-    Dim1 = int(np.sqrt(np.array(brw[wellID + '/StoredChIdxs']).shape[0]))
+    Dim1 = int(np.sqrt(np.array(BRW[WellID + '/StoredChIdxs']).shape[0]))
     Dim2 = Dim1
-    Data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
+    Data, Frames2Save = ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime, Duration)
 
-    ListaAL = []
+    ListAL = []
     for it in np.arange(Data.shape[0]):
         aux = Data[it,:]
         TuplaAL = (int(Frames2Save[it]), aux)
-        ListaAL.append(TuplaAL)
+        ListAL.append(TuplaAL)
 
-    ListaXY  = []
+    ListXY  = []
     for it in np.arange(1,Dim1+1):
         TuplaXY = (it, np.arange(1,Dim2+1))
-        ListaXY.append(TuplaXY)
+        ListXY.append(TuplaXY)
 
-    DfXY = pd.DataFrame(ListaXY, columns=["X", "Y"])
-    DfAL = pd.DataFrame(ListaAL, columns=["Frame", "Activity"])
+    DfXY = pd.DataFrame(ListXY, columns=["X", "Y"])
+    DfAL = pd.DataFrame(ListAL, columns=["Frame", "Activity"])
     return DfXY, DfAL
 
-def SpikesActivityLevel(brw, bxr, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
+def SpikesActivityLevel(BRW, bxr, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
     """
     This function creates a matrix (number of frames saved x channels) where the entry ij is not zero if and only if
     the channel j has a spike at frame i; the entry is equal to the activity level of the channel j at frame i
     
     Args:
-        brw (BrwFile): BRW file.
+        BRW (BrwFile): BRW file.
         bxr (BXRFile): BRW file.
-        wellID (str): identifier of the selected well.
+        WellID (str): identifier of the selected well.
         DownsamplingFrequency (float): chosen sampling frequency.
         StartTime (float): starting time in seconds. Defaults to 0.
         Duration (float): Duration of the measurement (in second). Defaults to 0.05.
@@ -405,13 +403,13 @@ def SpikesActivityLevel(brw, bxr, wellID, DownsamplingFrequency, StartTime = 0, 
         SpikesAL (np.ndarray): matrix where the entry ij is not zero if and only if the channel j has a spike at frame i.
     """
     try:
-        SamplingRate = brw.attrs['SamplingRate']
+        SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
-        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
     StartFrame = int(SamplingRate * StartTime)
-    SpikeFrames, SpikeChannels = bxr_functions.Spikes2Df(bxr, wellID, StartTime, Duration)
-    Data, Frames2Save = ReadingRawData(brw, wellID, SamplingRate, StartTime, Duration)
+    SpikeFrames, SpikeChannels = bxr_functions.Spikes2Df(bxr, WellID, StartTime, Duration)
+    Data, Frames2Save = ReadingRawData(BRW, WellID, SamplingRate, StartTime, Duration)
     spikesAL = np.zeros((Data.shape[0],Data.shape[1]))
     for i in range(len(SpikeFrames)):
         print('Spike at frame '+str(SpikeFrames[i])+', channel number '+str(SpikeChannels[i]+1))
