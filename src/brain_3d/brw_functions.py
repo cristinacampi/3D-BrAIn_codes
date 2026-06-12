@@ -243,8 +243,14 @@ def ReadingSingleChannel(brw, wellID, DownsamplingFrequency, row, col, StartTime
         Frames2Save (np.ndarray): array that contains the frames relative to measurements in AuxData.
     """
 
-    data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
-    AuxData = data[:,row*data.shape[1]+col]
+    Data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
+    try:
+        NumChannels = np.array(brw[wellID + '/StoredChIdxs']).shape[0]
+    except KeyError:
+        info = json.loads(brw['ExperimentInfo'][()][0].decode('utf-8'))
+        NumChannels = len(info['CorePlateData']['StoredPlateElIdxs']) 
+    AuxData = Data[:,row*NumChannels+col]
+
     return AuxData, Frames2Save
 
 def PlotRawData(brw, wellID, title, DownsamplingFrequency, row, col, StartTime=0, Duration=0.05): 
@@ -365,11 +371,11 @@ def BRW2df(brw, wellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
     """
     Dim1 = int(np.sqrt(np.array(brw[wellID + '/StoredChIdxs']).shape[0]))
     Dim2 = Dim1
-    data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
+    Data, Frames2Save = ReadingRawData(brw, wellID, DownsamplingFrequency, StartTime, Duration)
 
     ListaAL = []
-    for it in np.arange(data.shape[0]):
-        aux = data[it,:]
+    for it in np.arange(Data.shape[0]):
+        aux = Data[it,:]
         TuplaAL = (int(Frames2Save[it]), aux)
         ListaAL.append(TuplaAL)
 
@@ -405,21 +411,21 @@ def SpikesActivityLevel(brw, bxr, wellID, DownsamplingFrequency, StartTime = 0, 
         SamplingRate = info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
     StartFrame = int(SamplingRate * StartTime)
     SpikeFrames, SpikeChannels = bxr_functions.Spikes2Df(bxr, wellID, StartTime, Duration)
-    data, Frames2Save = ReadingRawData(brw, wellID, SamplingRate, StartTime, Duration)
-    spikesAL = np.zeros((data.shape[0],data.shape[1]))
+    Data, Frames2Save = ReadingRawData(brw, wellID, SamplingRate, StartTime, Duration)
+    spikesAL = np.zeros((Data.shape[0],Data.shape[1]))
     for i in range(len(SpikeFrames)):
         print('Spike at frame '+str(SpikeFrames[i])+', channel number '+str(SpikeChannels[i]+1))
-        spikesAL[SpikeFrames[i]-StartFrame-1][SpikeChannels[i]] = data[SpikeFrames[i]-StartFrame-1][SpikeChannels[i]] 
+        spikesAL[SpikeFrames[i]-StartFrame-1][SpikeChannels[i]] = Data[SpikeFrames[i]-StartFrame-1][SpikeChannels[i]] 
     return spikesAL  
 
-def BandpassFilter(data, lowcut, highcut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
+def BandpassFilter(Data, Lowcut, Highcut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
     Band pass filter
     
     Args:
-        data (float): signals to be filtered.
-        lowcut (float): lower limit of the band frequency.
-        highcut (float): upper limit of the band frequency.
+        Data (float): signals to be filtered.
+        Lowcut (float): lower limit of the band frequency.
+        Highcut (float): upper limit of the band frequency.
         SamplingRate (float): signal sampling rate.
         nfilter (int): the order of the filter. Defaults to 3.
         PercSamplingRate (float): factor for downsample. Defaults to 0.5.
@@ -427,18 +433,18 @@ def BandpassFilter(data, lowcut, highcut, SamplingRate, nfilter=3, PercSamplingR
     Returns:
         float: the filtered signal.
     """
-    b,a = butter(nfilter, [lowcut/(PercSamplingRate*SamplingRate), highcut/(PercSamplingRate *SamplingRate)], btype = 'band' )
-    filtered = filtfilt(b, a, data)
+    b,a = butter(nfilter, [Lowcut/(PercSamplingRate*SamplingRate), Highcut/(PercSamplingRate *SamplingRate)], btype = 'band' )
+    filtered = filtfilt(b, a, Data)
 
     return filtered
 
-def HighpassFilter(data, cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
+def HighpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
     High pass filter
     
     Args:
-        data (float): signals to be filtered.
-        cut (float): Frequency to remove from the signal.
+        Data (float): signals to be filtered.
+        Cut (float): Frequency to remove from the signal.
         SamplingRate (float): signal sampling rate.
         nfilter (int): the order of the filter. Defaults to 3.
         PercSamplingRate (float): factor for downsample. Defaults to 0.5.
@@ -446,36 +452,36 @@ def HighpassFilter(data, cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     Returns:
         float: the filtered signal.
     """
-    b, a = butter(nfilter, cut / (PercSamplingRate*SamplingRate), btype='high')
-    filtered = filtfilt(b, a, data)
+    b, a = butter(nfilter, Cut / (PercSamplingRate*SamplingRate), btype='high')
+    filtered = filtfilt(b, a, Data)
 
     return filtered
 
-def NotchFilter(data, cut, SamplingRate, qf=3):
+def NotchFilter(Data, Cut, SamplingRate, qf=3):
     """
     Apply a notch filter to remove a specific frequency from the signal.
     
     Args:
-        data (float): signals to be filtered.
-        cut (float): Frequency to remove from the signal.
+        Data (float): signals to be filtered.
+        Cut (float): Frequency to remove from the signal.
         SamplingRate (float): signal sampling rate.
         qf (int): Quality factor. Defaults to 3.
     
     Returns:
         float: the filtered signal.
     """
-    b, a = iirnotch(cut, qf, SamplingRate)
-    filtered = filtfilt(b, a, data)
+    b, a = iirnotch(Cut, qf, SamplingRate)
+    filtered = filtfilt(b, a, Data)
 
     return filtered
 
-def LowpassFilter(data, cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
+def LowpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
     Apply a low-pass filter to remove high-frequency components from the signal.
     
     Args:
-        data (float): signals to be filtered.
-        cut (float): Frequency to remove from the signal.
+        Data (float): signals to be filtered.
+        Cut (float): Frequency to remove from the signal.
         SamplingRate (float): signal sampling rate.
         nfilter (int): the order of the filter. Defaults to 3.
         PercSamplingRate (float): factor for downsample. Defaults to 0.5.
@@ -483,34 +489,34 @@ def LowpassFilter(data, cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     Returns:
         float: the filtered signal.
     """
-    b, a = butter(nfilter, cut / (PercSamplingRate*SamplingRate), btype='low')
-    filtered = filtfilt(b, a, data)
+    b, a = butter(nfilter, Cut / (PercSamplingRate*SamplingRate), btype='low')
+    filtered = filtfilt(b, a, Data)
 
     return filtered
 
-def CommonAverageReference(data):
+def CommonAverageReference(Data):
     """
     The median and then the mean are removed form the data
     
     Args:
-        data (float): signals to be transformed.
+        Data (float): signals to be transformed.
     
     Returns:
         float: the transformed signal.
     """
-    median = np.median(data, 1)
-    data = (data.T - median).T
-    mu = np.mean(data,0)
-    data = data - mu
+    median = np.median(Data, 1)
+    Data = (Data.T - median).T
+    mu = np.mean(Data,0)
+    Data = Data - mu
     
-    return data
+    return Data
 
-def WienerFilter(data):
+def WienerFilter(Data):
     """
     Wiener filter
     
     Args:
-        data (float): signals to be filtered.
+        Data (float): signals to be filtered.
     
     Returns:
         float: the filtered signal.
@@ -519,18 +525,18 @@ def WienerFilter(data):
 
     return data
 
-def PercentileFilter(data, percentile):
+def PercentileFilter(Data, percentile):
     """
     Apply a percentile filter to remove frequency components below a specified magnitude percentile.
     
     Args:
-        data (float): signals to be filtered.
+        Data (float): signals to be filtered.
         percentile (float): the magnitude percentile we want to remove from the data.
     
     Returns:
         float: the filtered signal.
     """
-    Spectrum = np.fft.fft(data)
+    Spectrum = np.fft.fft(Data)
     Magnitude = np.abs(Spectrum)
     Threshold = np.percentile(Magnitude, percentile)
     Spectrum[Magnitude < Threshold] = 0
@@ -538,18 +544,18 @@ def PercentileFilter(data, percentile):
 
     return filtered 
 
-def PlotlyGraph(data, ch):
+def PlotlyGraph(Data, ch):
     """
     Plot a data channel to an HTML file using Plotly.
     
     Args:
-        data (float): data to be plotted.
+        Data (float): data to be plotted.
         ch (int): sensor to be plotted.
     
     Returns:
         None: Generates an HTML file named 'Graph_channel_<ch>.html'.
     """
-    df = pd.DataFrame({'x_axis': np.arange(data.shape[0]), 'y_axis': data[:,ch] })
+    df = pd.DataFrame({'x_axis': np.arange(Data.shape[0]), 'y_axis': Data[:,ch] })
     fig = px.line(df, x='x_axis', y='y_axis', title='Channel '+str(ch))
     fig.write_html('Graph_channel_'+str(ch)+'.html')   
 

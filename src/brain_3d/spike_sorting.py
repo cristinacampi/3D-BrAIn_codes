@@ -26,15 +26,32 @@ import gc
 
 def FindCorrelation(df, thresh=0.9, verbose=False):
     """
-    _summary_
-    
-    Args:
-        df (_type_): _description_.
-        thresh (float): _description_. Defaults to 0.9.
-        verbose (bool, optional): _description_. Defaults to False. Raises:. ValueError: _description_.
-    
-    Returns:
-        _type_: _description_.
+    Select a subset of variables by removing highly correlated features.
+
+    The function computes the correlation matrix of the input DataFrame and
+    iteratively removes variables whose correlation exceeds the specified
+    threshold, returning the indices of the retained columns.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataset containing the variables to analyze.
+    thresh : float, optional
+        Correlation threshold above which two variables are considered
+        redundant. Default is 0.9.
+    verbose : bool, optional
+        If True, prints diagnostic information during the selection process.
+        Default is False.
+
+    Returns
+    -------
+    list
+        Sorted list of column indices retained after correlation filtering.
+
+    Raises
+    ------
+    ValueError
+        If the input DataFrame contains only one variable.
     """
     corrMatrix = df.corr()
     # corrMatrix.loc[:,:] =  np.triu(corrMatrix, k=0)
@@ -98,7 +115,6 @@ def FindCorrelation(df, thresh=0.9, verbose=False):
             col.append(temp_matrix.columns[i])
 
     return sorted(col)
-
 
 def SpikesDetection(Data , step, threshold, aux_spike): 
     """
@@ -184,7 +200,6 @@ def TemplateNeg(Data , ch, parameter = 4.5, algo = 'Leiden', distance = 'rho', m
     frames_N = set(frames_N)|set(frames_neg)
     frames_N = sorted(frames_N)
 
-    #PROVA PER MIGLIORARE MA DA RICONTROLLARE
     #'''
     t=0
     n_frames_ch_pos = 0
@@ -231,7 +246,7 @@ def TemplateNeg(Data , ch, parameter = 4.5, algo = 'Leiden', distance = 'rho', m
             Dataset_N[k] = DataChannel[peak_frame-20:peak_frame+21] 
     Dataset_N_aux = Dataset_N.copy()
     if Dataset_N_aux.shape[0]>1:
-        clusters = stratification.Recursive_clustering(Data =Dataset_N_aux, algo=algo, distance=distance, method_HC=method_HC, criterion_HC=criterion_HC, method_KM=method_KM, max_iter_FCM=max_iter_FCM, threshold_variance=threshold_variance, wMax =wMax , g=g, epsilonEDR=epsilonEDR, epsilonLCSS=epsilon_LCSS, FuzzyParameter=FuzzyParameter, noise=noise, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=max_classes, threshold_Leiden=threshold_Leiden, SamplingRate=frequency, pMinkowski=pMinkowski, Normalization=Normalization, NormMode=NormMode)
+        clusters = stratification.Recursive_clustering(Data =Dataset_N_aux, algo=algo, distance=distance, method_HC=method_HC, criterion_HC=criterion_HC, method_KM=method_KM, max_iter_FCM=max_iter_FCM, threshold_variance=threshold_variance, wMax =wMax , g=g, epsilonEDR=epsilonEDR, epsilonLCSS=epsilonLCSS, FuzzyParameter=FuzzyParameter, noise=noise, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=MaxClasses, threshold_Leiden=threshold_Leiden, SamplingRate=frequency, pMinkowski=pMinkowski, Normalization=Normalization, NormMode=NormMode)
 
         templates_N =[] 
         for c in range(clusters[0]):
@@ -402,13 +417,29 @@ def TemplateMatching(Data , templates, thresh = 0.95):
     
 def CrossCorrelogram(f_cluster_1, f_cluster_2, SamplingRate, NumFrames):
     """
-    _summary_
-    
-    Args:
-        f_cluster_1 (_type_): _description_.
-        f_cluster_2 (_type_): _description_.
-        SamplingRate (_type_): _description_.
-        NumFrames (_type_): _description_.
+    Compute and inspect the cross-correlogram between two spike trains.
+
+    The function converts spike-frame indices into Neo SpikeTrain objects,
+    computes the cross-correlation histogram (CCG), and compares the average
+    activity around zero lag with activity in the side regions to detect
+    potential refractory-period violations.
+
+    Parameters
+    ----------
+    f_cluster_1 : array-like
+        Spike-frame indices for the first cluster.
+    f_cluster_2 : array-like
+        Spike-frame indices for the second cluster.
+    SamplingRate : float
+        Acquisition sampling frequency in Hz.
+    NumFrames : int
+        Total number of frames in the recording.
+
+    Notes
+    -----
+    The function currently prints a qualitative assessment of refractory
+    behavior rather than returning a value. A low central peak relative to
+    the side regions may indicate over-clustering.
     """
     spike_times_1 = f_cluster_1/SamplingRate
     spike_times_2 = f_cluster_2/SamplingRate
@@ -441,35 +472,30 @@ def CrossCorrelogram(f_cluster_1, f_cluster_2, SamplingRate, NumFrames):
     else:
         print("→ Nessuna chiara refrattarietà")
 
-    """
-    _summary_
-    
-    Args:
-        args_tuple (_type_): _description_.
-    
-    Returns:
-        _type_: _description_.
-    """
-    final_templates, final_frames = SacchiSpikesSorting(*args_tuple)
-
-    for var in list(locals()):
-        if var != 'final_templates' or var != 'final_frames':
-            del locals()[var]
-    import gc
-    gc.collect()
-
-    return final_templates[0], final_frames[0]
-
 def ChannelSpksort(ch):
     """
-    _summary_
-    
-    Args:
-        ch (_type_): _description_.
-    
-    Returns:
-        _type_: _description_.
+    Retrieve the neighborhood channels around a reference channel.
+
+    The function identifies all channels within a 5x5 spatial window centered
+    on the specified channel and returns both the channel list and the
+    position of the reference channel within that list.
+
+    Parameters
+    ----------
+    ch : int
+        Index of the reference channel on a 64-column electrode grid.
+
+    Returns
+    -------
+    tuple
+        Tuple containing:
+
+        - chs : numpy.ndarray
+            Sorted array of neighboring channel indices.
+        - idx_ch : numpy.ndarray
+            Index of the reference channel within ``chs``.
     """
+    
     row = ch//64
     col = ch % 64
     rows = np.arange(row-2,row+2+1)
@@ -491,16 +517,26 @@ def ChannelSpksort(ch):
 
     return chs, idx_ch
 
-
 def LinkChsSpksort(results):
     """
-    _summary_
-    
-    Args:
-        results (_type_): _description_.
-    
-    Returns:
-        _type_: _description_.
+    Estimate template overlap between neighboring channels.
+
+    The function compares spike templates extracted from different channels
+    using Pearson correlation and counts highly correlated template pairs.
+
+    Parameters
+    ----------
+    results : list
+        List containing spike sorting results for multiple channels.
+        Each element is expected to contain the templates associated with
+        a channel.
+
+    Returns
+    -------
+    numpy.ndarray
+        Symmetric matrix where element (i, j) contains the number of template
+        pairs with Pearson correlation greater than or equal to 0.95 between
+        channels i and j.
     """
     n_chs = len(results)
     common_neuron = np.zeros((n_chs, n_chs))
