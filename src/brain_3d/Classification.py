@@ -66,11 +66,15 @@ def _as_time_series_panel(X):
 def tss_score(conf_matrix):
     """Compute the True Skill Statistic from a binary confusion matrix.
 
-    Args:
-        conf_matrix (array-like): binary confusion matrix with shape ``(2, 2)``.
+    Parameters
+    ----------
+    conf_matrix : array-like
+        binary confusion matrix with shape ``(2, 2)``.
 
-    Returns:
-        float: true positive rate minus false positive rate.
+    Returns
+    -------
+    float
+        true positive rate minus false positive rate.
     """
     conf_matrix = np.asarray(conf_matrix)
     if conf_matrix.shape != (2, 2):
@@ -88,12 +92,17 @@ def load_feature_pickles(file_loc, feature_column="Features"):
     Each pickle is expected to contain a pandas DataFrame with a feature column
     and one or more metadata/label columns.
 
-    Args:
-        file_loc (str or pathlib.Path): directory containing ``.pkl``/``.pickle`` files.
-        feature_column (str): name of the DataFrame column containing features.
+    Parameters
+    ----------
+    file_loc : str or pathlib.Path
+        directory containing ``.pkl``/``.pickle`` files.
+    feature_column : str
+        name of the DataFrame column containing features.
 
-    Returns:
-        pandas.DataFrame: concatenated rows with ``Source_File`` and ``Source_Row`` columns.
+    Returns
+    -------
+    pandas.DataFrame
+        concatenated rows with ``Source_File`` and ``Source_Row`` columns.
     """
     file_loc = _as_path(file_loc)
     Rows = []
@@ -132,19 +141,29 @@ def build_classification_dataset(
 ):
     """Build ``X`` and ``y`` arrays from extracted features and label tags.
 
-    Args:
-        data (pandas.DataFrame): feature table, for example from :func:`load_feature_pickles`.
-        label (str): column used as the classification target.
-        class_tags (list[list[str]] or dict): class definitions. If a list is used,
+    Parameters
+    ----------
+    data : pandas.DataFrame
+        feature table, for example from :func:`load_feature_pickles`.
+    label : str
+        column used as the classification target.
+    class_tags : list[list[str]] or dict
+        class definitions. If a list is used,
             labels are ``0..n-1``. If a dict is used, dict keys become class labels.
-        pre_label (str, optional): metadata column used to filter rows before classification.
-        pre_tags (list[str], optional): accepted values for ``pre_label``.
-        feature_column (str): column containing feature vectors or matrices.
-        flatten (bool): if True, flatten each feature entry. Set to False for
+    pre_label : str, optional
+        metadata column used to filter rows before classification.
+    pre_tags : list[str], optional
+        accepted values for ``pre_label``.
+    feature_column : str
+        column containing feature vectors or matrices.
+    flatten : bool
+        if True, flatten each feature entry. Set to False for
             raw time-series matrices passed to MiniRocket.
 
-    Returns:
-        tuple: ``(X, y, metadata)`` where ``X`` is a 2D feature matrix, ``y`` is a
+    Returns
+    -------
+    tuple
+        ``(X, y, metadata)`` where ``X`` is a 2D feature matrix, ``y`` is a
         1D label array, and ``metadata`` stores source file/row information.
     """
     if pre_label is not None and pre_tags is not None:
@@ -199,18 +218,26 @@ def extract_minirocket_features(
 ):
     """Fit MiniRocket on train data and transform train/test time series.
 
-    Args:
-        X_train (array-like): train signals with shape ``(samples, timepoints)``
+    Parameters
+    ----------
+    X_train : array-like
+        train signals with shape ``(samples, timepoints)``
             or ``(samples, channels, timepoints)``.
-        X_test (array-like, optional): test signals with the same channel/time layout.
-        num_kernels (int): number of MiniRocket kernels.
-        multivariate (bool): use ``MiniRocketMultivariate`` for multichannel data.
-        channel_group_size (int, optional): if set, fit one MiniRocket extractor
+    X_test : array-like, optional
+        test signals with the same channel/time layout.
+    num_kernels : int
+        number of MiniRocket kernels.
+    multivariate : bool
+        use ``MiniRocketMultivariate`` for multichannel data.
+    channel_group_size : int, optional
+        if set, fit one MiniRocket extractor
             per channel block and concatenate the resulting features. This mirrors
             the chunked strategy used in the original repository scripts.
 
-    Returns:
-        dict: transformed features and fitted MiniRocket extractor(s).
+    Returns
+    -------
+    dict
+        transformed features and fitted MiniRocket extractor(s).
     """
     MiniRocket, MiniRocketMultivariate = _require_sktime_rocket()
     X_train = _as_time_series_panel(X_train)
@@ -282,23 +309,37 @@ def minirocket_classifier_cv(
     MiniRocket is fitted separately inside each train/test split, using only the
     training samples. This keeps the test fold out of the feature-extractor fit.
 
-    Args:
-        X (array-like): raw time-series data with shape ``(samples, timepoints)``
+    Parameters
+    ----------
+    X : array-like
+        raw time-series data with shape ``(samples, timepoints)``
             or ``(samples, channels, timepoints)``.
-        y (array-like): target labels.
-        n_splits (int): number of repeated train/test splits.
-        test_size (float): fraction of samples used for testing.
-        alphas (array-like, optional): alpha grid for ``RidgeClassifierCV``.
-        random_state (int, optional): seed used to make splits reproducible.
-        num_kernels (int): number of MiniRocket kernels.
-        multivariate (bool): use the multivariate MiniRocket transformer.
-        channel_group_size (int, optional): split channels into blocks and
+    y : array-like
+        target labels.
+    n_splits : int
+        number of repeated train/test splits.
+    test_size : float
+        fraction of samples used for testing.
+    alphas : array-like, optional
+        alpha grid for ``RidgeClassifierCV``.
+    random_state : int, optional
+        seed used to make splits reproducible.
+    num_kernels : int
+        number of MiniRocket kernels.
+    multivariate : bool
+        use the multivariate MiniRocket transformer.
+    channel_group_size : int, optional
+        split channels into blocks and
             concatenate per-block MiniRocket features.
-        scale_features (bool): apply ``StandardScaler`` after MiniRocket.
-        with_mean (bool): passed to ``StandardScaler`` when scaling is enabled.
+    scale_features : bool
+        apply ``StandardScaler`` after MiniRocket.
+    with_mean : bool
+        passed to ``StandardScaler`` when scaling is enabled.
 
-    Returns:
-        dict: metrics, confusion matrix, predictions, fitted models, scalers,
+    Returns
+    -------
+    dict
+        metrics, confusion matrix, predictions, fitted models, scalers,
         and MiniRocket extractors for each fold.
     """
     X = _as_time_series_panel(X)
@@ -402,17 +443,27 @@ def ridge_classifier_cv(
 ):
     """Repeated stratified train/test evaluation with ``RidgeClassifierCV``.
 
-    Args:
-        X (array-like): feature matrix with shape ``(n_samples, n_features)``.
-        y (array-like): target labels.
-        n_splits (int): number of repeated train/test splits.
-        test_size (float): fraction of samples used for testing.
-        alphas (array-like, optional): alpha grid for ridge cross-validation.
-        random_state (int, optional): seed used to make the repeated splits reproducible.
-        with_mean (bool): passed to :class:`sklearn.preprocessing.StandardScaler`.
+    Parameters
+    ----------
+    X : array-like
+        feature matrix with shape ``(n_samples, n_features)``.
+    y : array-like
+        target labels.
+    n_splits : int
+        number of repeated train/test splits.
+    test_size : float
+        fraction of samples used for testing.
+    alphas : array-like, optional
+        alpha grid for ridge cross-validation.
+    random_state : int, optional
+        seed used to make the repeated splits reproducible.
+    with_mean : bool
+        passed to :class:`sklearn.preprocessing.StandardScaler`.
 
-    Returns:
-        dict: metrics, confusion matrix, predictions, fitted models, and scalers.
+    Returns
+    -------
+    dict
+        metrics, confusion matrix, predictions, fitted models, and scalers.
     """
     X = np.asarray(X)
     y = np.asarray(y)
@@ -492,11 +543,16 @@ def ridge_classifier_cv(
 def plot_classification_results(results, save_loc=None, save_name="classification", show=False):
     """Plot performance boxplots and cumulative confusion matrix.
 
-    Args:
-        results (dict): output of :func:`ridge_classifier_cv`.
-        save_loc (str or pathlib.Path, optional): directory where plots are saved.
-        save_name (str): filename prefix for saved plots.
-        show (bool): whether to display plots interactively.
+    Parameters
+    ----------
+    results : dict
+        output of :func:`ridge_classifier_cv`.
+    save_loc : str or pathlib.Path, optional
+        directory where plots are saved.
+    save_name : str
+        filename prefix for saved plots.
+    show : bool
+        whether to display plots interactively.
     """
     Metrics = results["metrics"]
     save_loc = None if save_loc is None else _as_path(save_loc)
@@ -581,30 +637,51 @@ def classifier(
     This function keeps the call style of the original repository script while
     returning structured results that can be reused downstream.
 
-    Args:
-        file_loc (str): directory containing feature DataFrame pickle files.
-        pre_label (str): metadata column used for pre-filtering.
-        label (str): metadata column used as classification target.
-        pre_tag (list[str]): accepted values for ``pre_label``.
-        tag (list[list[str]] or dict): class tags used to convert labels to classes.
-        save_loc (str): directory where plots/results are saved.
-        save_name (str): filename prefix for saved artifacts.
-        save_results (bool): whether to save the fold-level results pickle.
-        n_splits (int): number of repeated train/test splits.
-        test_size (float): fraction of samples used for testing.
-        random_state (int, optional): seed for reproducible splits.
-        show (bool): whether to display plots interactively.
-        use_minirocket (bool): if True, treat ``feature_column`` as raw
+    Parameters
+    ----------
+    file_loc : str
+        directory containing feature DataFrame pickle files.
+    pre_label : str
+        metadata column used for pre-filtering.
+    label : str
+        metadata column used as classification target.
+    pre_tag : list[str]
+        accepted values for ``pre_label``.
+    tag : list[list[str]] or dict
+        class tags used to convert labels to classes.
+    save_loc : str
+        directory where plots/results are saved.
+    save_name : str
+        filename prefix for saved artifacts.
+    save_results : bool
+        whether to save the fold-level results pickle.
+    n_splits : int
+        number of repeated train/test splits.
+    test_size : float
+        fraction of samples used for testing.
+    random_state : int, optional
+        seed for reproducible splits.
+    show : bool
+        whether to display plots interactively.
+    use_minirocket : bool
+        if True, treat ``feature_column`` as raw
             time-series data and extract MiniRocket features inside each split.
-        feature_column (str): column containing extracted features or raw signals.
-        num_kernels (int): number of MiniRocket kernels when ``use_minirocket`` is True.
-        multivariate (bool): use multivariate MiniRocket for multichannel signals.
-        channel_group_size (int, optional): split channels into blocks before
+    feature_column : str
+        column containing extracted features or raw signals.
+    num_kernels : int
+        number of MiniRocket kernels when ``use_minirocket`` is True.
+    multivariate : bool
+        use multivariate MiniRocket for multichannel signals.
+    channel_group_size : int, optional
+        split channels into blocks before
             MiniRocket extraction.
-        scale_rocket_features (bool): apply ``StandardScaler`` after MiniRocket.
+    scale_rocket_features : bool
+        apply ``StandardScaler`` after MiniRocket.
 
-    Returns:
-        dict: dataset metadata, metrics, confusion matrix, models, and scalers.
+    Returns
+    -------
+    dict
+        dataset metadata, metrics, confusion matrix, models, and scalers.
     """
     Data = load_feature_pickles(file_loc, feature_column=feature_column)
     X, Y, Metadata = build_classification_dataset(

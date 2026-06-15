@@ -13,21 +13,26 @@ import json
 def ReadBXR(Filename, WellID):
     """
     Read BXR file, return the BXR Data and print some information about the file:
-    -file's name; 
-    -Data and time of the recording; 
-    -number of channels; 
-    -length of the recording; 
-    -number of Frames recorded; 
+    -file's name;
+    -Data and time of the recording;
+    -number of channels;
+    -length of the recording;
+    -number of Frames recorded;
     -sampling frequency
 
 
-    Args:
-        Filename (str): name of the file and its extension .BXR 
-        WellID (str): identifier of the selected well
+    Parameters
+    ----------
+    Filename : str
+        name of the file and its extension .BXR
+    WellID : str
+        identifier of the selected well
 
-    Returns:
-        BXR (h5py): the BXR file in h5py
-    """    
+    Returns
+    -------
+    BXR : h5py
+        the BXR file in h5py
+    """
     BXR = h5py.File(Filename)
 
     Toc = np.array(BXR['TOC'])
@@ -49,32 +54,45 @@ def ConversionTimeToFrames(BXR, Time):
     """
     Convert time in seconds to Frames based on sampling frequency.
 
-    Args:
-        BXR (BXRFile): BXR file object
-        Time (float): time in seconds
+    Parameters
+    ----------
+    BXR : BXRFile
+        BXR file object
+    Time : float
+        time in seconds
 
-    Returns:
-        int: number of Frames corresponding to the time in seconds
-    """    
+    Returns
+    -------
+    int
+        number of Frames corresponding to the time in seconds
+    """
     SamplingRate = BXR.attrs['SamplingRate']
     Frames = int(Time * SamplingRate)
     return Frames
 
 def Spikes2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
-    """ 
+    """
     Selected a BXR file and a well, we read the Frames and the channel where
     spikes were detected (in a selected time interval)
 
-    Args:
-        BXR (BXRFile): BXR Data
-        WellID (str): identifier of the selected well
-        StartTime (float, optional): starting time in seconds. Defaults to 0
-        Duration (float, optional): duration of the measurement (in second). Defaults to 0.05
+    Parameters
+    ----------
+    BXR : BXRFile
+        BXR Data
+    WellID : str
+        identifier of the selected well
+    StartTime : float, optional
+        starting time in seconds. Defaults to 0
+    Duration : float, optional
+        duration of the measurement (in second). Defaults to 0.05
 
-    Returns:
-        SpikesFrames (array): It contains the Frames when spikes occured; if N channels have a spike at the frame T, then the frame T is repeated N times in the array
-        SpikeChannels (array): It contains the channel that measured the spikes
-    """    
+    Returns
+    -------
+    SpikesFrames : array
+        It contains the Frames when spikes occured; if N channels have a spike at the frame T, then the frame T is repeated N times in the array
+    SpikeChannels : array
+        It contains the channel that measured the spikes
+    """
     StartFrame = ConversionTimeToFrames(BXR, StartTime)
     EndFrame = StartFrame + ConversionTimeToFrames(BXR, Duration)
     SpikeFrames = np.array(BXR[WellID+'/SpikeTimes'])
@@ -84,20 +102,27 @@ def Spikes2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
 
 def CleanSpikes(BXR, WellID, PercentageChannels):
     """
-    Selected a BXR file, a well and a percentage of channels p, 
+    Selected a BXR file, a well and a percentage of channels p,
     we distinguish the Frames showing a number of spikes in a number
     of channel larger and smaller than
     the Threshold value (PercentageChannels)x(Number of channels)
 
-    Args:
-        BXR (BXRFile): file BXR opened from its path
-        WellID (str): identifier of the selected well
-        PercentageChannels (float): percentage of channels
+    Parameters
+    ----------
+    BXR : BXRFile
+        file BXR opened from its path
+    WellID : str
+        identifier of the selected well
+    PercentageChannels : float
+        percentage of channels
 
-    Returns:
-        SpikesLower (list): contains the frames with a number of spikes smaller than the Threshold
-        SpikesUpper (list): contains the frames  a number of spikes larger than the Threshold
-    """    
+    Returns
+    -------
+    SpikesLower : list
+        contains the frames with a number of spikes smaller than the Threshold
+    SpikesUpper : list
+        contains the frames  a number of spikes larger than the Threshold
+    """
     SpikeFrames = np.array(BXR[WellID+'/SpikeTimes'])
     SpikeChannels = np.array(BXR[WellID+'/SpikeChIdxs'])
     DifferentFrame = np.unique(SpikeFrames)
@@ -117,15 +142,22 @@ def CleanSpikes(BXR, WellID, PercentageChannels):
 def RasterPlot(BXR, WellID, StartTime=0, Duration=0.05):
     """Plot raster diagram of spike events in a selected time interval.
 
-    Args:
-        BXR (BXRFile): file BXR opened from its path
-        WellID (str): identifier of the selected well
-        StartTime (float, optional): starting time in seconds. Defaults to 0.
-        Duration (float, optional): duration of the measurement in seconds. Defaults to 0.05.
+    Parameters
+    ----------
+    BXR : BXRFile
+        file BXR opened from its path
+    WellID : str
+        identifier of the selected well
+    StartTime : float, optional
+        starting time in seconds. Defaults to 0.
+    Duration : float, optional
+        duration of the measurement in seconds. Defaults to 0.05.
 
-    Returns:
-        None (displays matplotlib plot)
-    """    
+    Returns
+    -------
+    None
+        displays matplotlib plot
+    """
     SpikeFrames, SpikeChannels = Spikes2Df(BXR, WellID, StartTime, Duration)
     SamplingRate = BXR.attrs['SamplingRate']
 
@@ -145,7 +177,7 @@ def RasterPlot(BXR, WellID, StartTime=0, Duration=0.05):
             else:
                 Data.append([])
 
-            
+
         plt.figure()
         plt.eventplot(Data, colors='black', lineoffsets=1, linelengths=2)
         plt.title('Spikes Raster Plot, Time interval = ['+str(StartTime)+', '+str(StartTime+Duration)+']')
@@ -157,16 +189,24 @@ def Burst2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
     """
     Selected a BXR file and a well, we read when and where we have bursts in a selected time interval
 
-    Args:
-        BXR (BXRFile): file BXR opened from its path
-        WellID (str): identifier of the selected well
-        StartTime (float, optional): starting time in seconds. Defaults to 0
-        Duration (float, optional): duration of the measurement (in second) I want to consider. Defaults to 0.05
+    Parameters
+    ----------
+    BXR : BXRFile
+        file BXR opened from its path
+    WellID : str
+        identifier of the selected well
+    StartTime : float, optional
+        starting time in seconds. Defaults to 0
+    Duration : float, optional
+        duration of the measurement (in second) I want to consider. Defaults to 0.05
 
-    Returns:
-        BurstFrames (array): a 1-dimensional array representing the time instant, in Frames, in which each spike burst has been detected
-        BurstChannels (array): a 1-dimensional array representing for each detected spike burst the linear Index of the channel It has been recorded on
-    """    
+    Returns
+    -------
+    BurstFrames : array
+        a 1-dimensional array representing the time instant, in Frames, in which each spike burst has been detected
+    BurstChannels : array
+        a 1-dimensional array representing for each detected spike burst the linear Index of the channel It has been recorded on
+    """
     BurstFrames = np.array(BXR[WellID+'/SpikeBurstTimes'])
     BurstChannels = np.array(BXR[WellID+'/SpikeBurstChIdxs'])
     StartFrame = ConversionTimeToFrames(BXR, StartTime)
@@ -180,7 +220,7 @@ def Burst2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
             I += 1
         else:
             Cont +=1
-    
+
     Cont = 0
     J = 0
     while Cont == 0:
@@ -188,7 +228,7 @@ def Burst2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
             J += 1
         else:
             Cont +=1
-    
+
     if (EndFrame <= BurstFrames[0][0]) or (J-I) <0 :
         BurstFrames = []
         BurstChannels = []
@@ -203,14 +243,21 @@ def Burst2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
 def BurstPlot(BXR, WellID, StartTime=0, Duration=0.01):
     """Plot burst events in a selected time interval with color-coded channels.
 
-    Args:
-        BXR (BXRFile): file BXR opened from its path
-        WellID (str): identifier of the selected well
-        StartTime (float, optional): starting time in seconds. Defaults to 0.
-        Duration (float, optional): duration of the measurement in seconds. Defaults to 0.01.
+    Parameters
+    ----------
+    BXR : BXRFile
+        file BXR opened from its path
+    WellID : str
+        identifier of the selected well
+    StartTime : float, optional
+        starting time in seconds. Defaults to 0.
+    Duration : float, optional
+        duration of the measurement in seconds. Defaults to 0.01.
 
-    Returns:
-        None (displays matplotlib plot)
+    Returns
+    -------
+    None
+        displays matplotlib plot
     """
     BurstFrames, BurstChannels = Burst2Df(BXR, WellID, StartTime, Duration)
 
@@ -240,7 +287,7 @@ def BurstPlot(BXR, WellID, StartTime=0, Duration=0.01):
                 F1 = BurstFrames[0]
                 F2 = BurstFrames[1]
                 BurstTimesExtended.append(np.arange(F1,F2+1)/SamplingRate)
-        else: 
+        else:
             for It in np.arange(len(BurstFrames)):
                 F1 = BurstFrames[It, 0]
                 F2 = BurstFrames[It, 1]
@@ -272,20 +319,28 @@ def BurstPlot(BXR, WellID, StartTime=0, Duration=0.01):
 def WaveformsPlot(BXR, WellID, StartTime=0, Duration=0.01, ChIdx=0):
     """Plot spike waveforms for a specific channel in a selected time interval.
 
-    Args:
-        BXR (BXRFile): file BXR opened from its path
-        WellID (str): identifier of the selected well
-        StartTime (float, optional): starting time in seconds. Defaults to 0.
-        Duration (float, optional): duration of the measurement in seconds. Defaults to 0.01.
-        ChIdx (int, optional): channel Index to plot. Defaults to 0.
+    Parameters
+    ----------
+    BXR : BXRFile
+        file BXR opened from its path
+    WellID : str
+        identifier of the selected well
+    StartTime : float, optional
+        starting time in seconds. Defaults to 0.
+    Duration : float, optional
+        duration of the measurement in seconds. Defaults to 0.01.
+    ChIdx : int, optional
+        channel Index to plot. Defaults to 0.
 
-    Returns:
-        None (displays matplotlib plot)
+    Returns
+    -------
+    None
+        displays matplotlib plot
     """
     #starting frame
     StartFrame = ConversionTimeToFrames(BXR, StartTime)
     #number of Frames considered
-    NumFrames = ConversionTimeToFrames(BXR, Duration)   
+    NumFrames = ConversionTimeToFrames(BXR, Duration)
     # collect the TOCs
     Toc = np.array(BXR['TOC'])
     SpikeToc = np.array(BXR[WellID + '/SpikeTOC'])
@@ -330,7 +385,7 @@ def WaveformsPlot(BXR, WellID, StartTime=0, Duration=0.01, ChIdx=0):
                 WaveformData[SpikeUnit].append(SpikeDataWaveforms[I*WaveformLength:I*WaveformLength+WaveformLength])
             else:
                 WaveformData.append(SpikeDataWaveforms[I*WaveformLength:I*WaveformLength+WaveformLength])
-    
+
     # visualize waveforms for the given channel Index, if spike sorting was performed,
     # units will be plotted with different colors
     if len(WaveformData)==0:
@@ -365,16 +420,24 @@ def FP2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
     """
     Selected a BXR file and a well, we read when and where we have a FP in a selected time interval
 
-    Args:
-        BXR (BXRFile): file BXR opened from its path
-        WellID (str): identifier of the selected well
-        StartTime (float, optional): starting time in seconds. Defaults to 0
-        Duration (float, optional): duration of the measurement (in second) I want to consider. Defaults to 0.05
+    Parameters
+    ----------
+    BXR : BXRFile
+        file BXR opened from its path
+    WellID : str
+        identifier of the selected well
+    StartTime : float, optional
+        starting time in seconds. Defaults to 0
+    Duration : float, optional
+        duration of the measurement (in second) I want to consider. Defaults to 0.05
 
-    Returns:
-        FPFrames (array): It contains the Frames when FPs occured; 
-        FPChannels (array): It contains the channel that measured the FPs
-    """    
+    Returns
+    -------
+    FPFrames : array
+        It contains the Frames when FPs occured;
+    FPChannels : array
+        It contains the channel that measured the FPs
+    """
     StartFrame = ConversionTimeToFrames(BXR, StartTime)
     EndFrame = StartFrame + ConversionTimeToFrames(BXR, Duration)
     FPFrames = np.array(BXR[WellID+'/FpTimes'])
@@ -385,20 +448,28 @@ def FP2Df(BXR, WellID, StartTime = 0, Duration = 0.05):
 def FPFormPlot(BXR, WellID, StartTime=0, Duration=0.05, ChIdx=0):
     """Plot false positive waveforms for a specific channel in a selected time interval.
 
-    Args:
-        BXR (BXRFile): file BXR opened from its path
-        WellID (str): identifier of the selected well
-        StartTime (float, optional): starting time in seconds. Defaults to 0.
-        Duration (float, optional): duration of the measurement in seconds. Defaults to 0.05.
-        ChIdx (int, optional): channel Index to plot. Defaults to 0.
+    Parameters
+    ----------
+    BXR : BXRFile
+        file BXR opened from its path
+    WellID : str
+        identifier of the selected well
+    StartTime : float, optional
+        starting time in seconds. Defaults to 0.
+    Duration : float, optional
+        duration of the measurement in seconds. Defaults to 0.05.
+    ChIdx : int, optional
+        channel Index to plot. Defaults to 0.
 
-    Returns:
-        None (displays matplotlib plot)
-    """  
+    Returns
+    -------
+    None
+        displays matplotlib plot
+    """
     #starting frame
     StartFrame = ConversionTimeToFrames(BXR, StartTime)
     #number of Frames considered
-    NumFrames = ConversionTimeToFrames(BXR, Duration)  
+    NumFrames = ConversionTimeToFrames(BXR, Duration)
     # collect experiment information
     MinDigitalValue = BXR.attrs['MinDigitalValue']
     MaxDigitalValue = BXR.attrs['MaxDigitalValue']
@@ -421,11 +492,11 @@ def FPFormPlot(BXR, WellID, StartTime=0, Duration=0.05, ChIdx=0):
     elif StartFrame+NumFrames<=FPFrames[0]:
         SecondIndex = 0
         Index = []
-    else: 
+    else:
         Si = np.where(FPFrames<=StartFrame+NumFrames)[0]
         SecondIndex = Si[len(Si)-1]
         Index = np.where(FPChannels[FirstIndex:SecondIndex+1]==ChIdx)[0]
-    if len(Index)>0:    
+    if len(Index)>0:
         plt.figure()
         X = np.arange(0, FPformLength, 1)/SamplingRate
         Colors = list(mcolors.XKCD_COLORS.keys())
@@ -434,13 +505,13 @@ def FPFormPlot(BXR, WellID, StartTime=0, Duration=0.05, ChIdx=0):
             Y = OffsetValue + DacFactor * FPForms[I:I + FPformLength]
             plt.plot(X, Y, color=Colors[C])
             C += 1
-        
+
         plt.title('FPforms = ' +str(len(Index))+ ', channel = '+ str(ChIdx+1)+', Time interval = ['+str(StartTime)+', '+str(StartTime+Duration)+']')
         plt.xlabel('(sec)')
         plt.ylabel('uV')
         plt.legend()
         plt.show()
-    else: 
+    else:
         print('No FP for the channel '+ str(ChIdx+1)+' in the time interval ['+str(StartTime)+', '+str(StartTime+Duration)+']')
 
 
