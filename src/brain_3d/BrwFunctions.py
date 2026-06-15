@@ -1,6 +1,7 @@
 """
-Codes with functions related to BRW file
+Utilities for reading, filtering, and extracting metrics from BRW files.
 """
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -17,32 +18,32 @@ import json
 
 def ReadBRW(Filename, WellID):
     """
-    Read BRW file, return the BRW data and print some information about the file:
-    -file's name;
-    -data and time of the recording;
-    -number of channels;
-    -length of the recording;
-    -number of frames recorded;
-    -sampling frequency
-    
-    Args:
-        Filename (str): name of the file and its extension .BRW.
-        WellID (str): identifier of the selected well.
-    
-    Returns:
-        BRW (h5py): the BRW data.
+    Open a BRW file and print basic recording information.
+
+    Parameters
+    ----------
+    Filename : str
+        Path to the BRW file.
+    WellID : str
+        Identifier of the selected well.
+
+    Returns
+    -------
+    tuple
+        Opened BRW file, sampling rate, number of channels, recording duration,
+        and total number of frames.
     """
     BRW = h5py.File(Filename)
 
     Toc = np.array(BRW['TOC'])
-    NumFrames = Toc[Toc.shape[0]-1,1] 
+    NumFrames = Toc[Toc.shape[0]-1,1]
     try:
         SamplingRate = BRW.attrs['SamplingRate']
         NumChannels = np.array(BRW[WellID + '/StoredChIdxs']).shape[0]
     except KeyError:
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
-        NumChannels = len(Info['CorePlateData']['StoredPlateElIdxs']) 
+        NumChannels = len(Info['CorePlateData']['StoredPlateElIdxs'])
 
     Duration = NumFrames/SamplingRate
 
@@ -57,32 +58,40 @@ def ReadBRW(Filename, WellID):
 
 def DecodeEventBasedRawData(BRW, Data, WellID, StartTime=0, Duration=0.05):
     """
-    FROM 3BRAIN
-    
-    Args:
-        BRW (BrwFile): file BRW opened from its path.
-        Data (dictionary): the keys are the recorded channel indexes StoredChIdxs and the values an array initialized with numFrames zeros for each key.
-        WellID (str): identifier of the selected well.
-        StartTime (float): starting time in seconds. Defaults to 0.
-        Duration (float): Duration of the measurement (in second). Defaults to 0.05.
-    
-    Returns:
-        Data (list): The returned data list contains digital samples that can be converted into analog values.
+    Decode event-based sparse raw data for a selected well and time interval.
+
+    Parameters
+    ----------
+    BRW : h5py.File
+        Opened BRW file.
+    Data : dict
+        Mapping from stored channel indices to initialized digital traces.
+    WellID : str
+        Identifier of the selected well.
+    StartTime : float, optional
+        Start time in seconds. Default is 0.
+    Duration : float, optional
+        Measurement duration in seconds. Default is 0.05.
+
+    Returns
+    -------
+    dict
+        Channel-indexed digital traces filled with decoded samples.
     """
     try:
         SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
-        
+
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate * (StartTime + Duration))
-    
+
     # collect the TOCs
     Toc = np.array(BRW['TOC']) #dà errore con i dati vecchi (ho provato DataSet_02)
     if EndFrame < StartFrame:
         EndFrame = Toc[Toc.shape[0]-1,1]
-    
+
     EventsToc = np.array(BRW[WellID + '/EventsBasedSparseRawTOC'])
     # from the given start position and Duration in frames, localize the corresponding event positions
     # using the TOC
@@ -115,29 +124,36 @@ def DecodeEventBasedRawData(BRW, Data, WellID, StartTime=0, Duration=0.05):
                 RangeDataPos += 2
             Pos += (ToExclusive - FromInclusive) * 2
 
-    return Data 
+    return Data
 
-def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05): 
+def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
     """
     Read raw data from a BRW file for a specified time interval and downsampling frequency.
-    
-    Args:
-        BRW (BrwFile): file BRW opened from its path.
-        WellID (str): identifier of the selected well.
-        DownsamplingFrequency (float): chosen sampling frequency.
-        StartTime (float): starting time in seconds. Defaults to 0.
-        Duration (float): Duration of the measurement (in second). Defaults to 0.05.
-    
-    Returns:
-        AuxData (np.ndarray): array that contains the signals measured from StartFrame to EndFrame.
-        Frames2Save (np.ndarray): array that contains the frames relative to measurements in AuxData.
+
+    Parameters
+    ----------
+    BRW : h5py.File
+        Opened BRW file.
+    WellID : str
+        Identifier of the selected well.
+    DownsamplingFrequency : float
+        Target sampling frequency in Hz.
+    StartTime : float, optional
+        Start time in seconds. Default is 0.
+    Duration : float, optional
+        Measurement duration in seconds. Default is 0.05.
+
+    Returns
+    -------
+    tuple
+        Downsampled analog data and the corresponding frame indices.
     """
     try:
         SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
-        
+
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate *(StartTime+Duration))
     # collect experiment information
@@ -148,10 +164,10 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
         MaxAnalogValue = BRW.attrs['MaxAnalogValue']
     except KeyError:
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        MinDigitalValue = Info['SignalConverter']['DigitalToAnalogConverter']['MinDigitalValue']        
-        MaxDigitalValue = Info['SignalConverter']['DigitalToAnalogConverter']['MaxDigitalValue']        
-        MinAnalogValue  = Info['SignalConverter']['DigitalToAnalogConverter']['MinAnalogValueMicroVolt'] 
-        MaxAnalogValue  = Info['SignalConverter']['DigitalToAnalogConverter']['MaxAnalogValueMicroVolt'] 
+        MinDigitalValue = Info['SignalConverter']['DigitalToAnalogConverter']['MinDigitalValue']
+        MaxDigitalValue = Info['SignalConverter']['DigitalToAnalogConverter']['MaxDigitalValue']
+        MinAnalogValue  = Info['SignalConverter']['DigitalToAnalogConverter']['MinAnalogValueMicroVolt']
+        MaxAnalogValue  = Info['SignalConverter']['DigitalToAnalogConverter']['MaxAnalogValueMicroVolt']
     DacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
     OffsetValue = MinAnalogValue - DacFactor * MinDigitalValue
 
@@ -171,7 +187,7 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
     if 'EventsBasedSparseRawTOC' in BRW[WellID]:
         DataDict = {}
         for ChIdx in ChIdxs:
-            DataDict[ChIdx] = np.zeros(EndFrame-StartFrame, dtype=np.int16) 
+            DataDict[ChIdx] = np.zeros(EndFrame-StartFrame, dtype=np.int16)
         DataDict = DecodeEventBasedRawData(BRW, DataDict, WellID, StartTime, Duration)
 
         Data = np.zeros((EndFrame-StartFrame, NCh))
@@ -180,11 +196,11 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
 
 
     elif 'Raw' in BRW[WellID]:
-        AuxData = BRW[WellID + '/Raw'] 
+        AuxData = BRW[WellID + '/Raw']
         AuxData = AuxData[StartFrame*NumChannels:EndFrame*NumChannels]
         Data = np.reshape(AuxData, (EndFrame-StartFrame, NumChannels))
 
-    elif 'WaveletBasedEncodedRaw' in BRW[WellID]: 
+    elif 'WaveletBasedEncodedRaw' in BRW[WellID]:
         CoefsTotalLength = len(BRW[WellID + '/WaveletBasedEncodedRaw'])
         CompressionLevel = BRW[WellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
         FramesChunkLength = BRW[WellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
@@ -196,14 +212,14 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
             while CoefsPosition < CoefsTotalLength:
                 Coefs = BRW[WellID + '/WaveletBasedEncodedRaw'][CoefsPosition:CoefsPosition+CoefsChunkLength]
                 Length = int(len(Coefs)/2)
-                Frames = pywt.idwt(Coefs[:Length], Coefs[Length:], 'sym7', 'periodization') 
+                Frames = pywt.idwt(Coefs[:Length], Coefs[Length:], 'sym7', 'periodization')
                 Length *= 2
                 for I in range(1, CompressionLevel):
                     Frames = pywt.idwt(Frames[:Length], None, 'sym7', 'periodization')
                     Length *= 2
                 Data.extend(Frames)
                 CoefsPosition += CoefsChunkLength * NumChannels
-            print(time.time()-T)  
+            print(time.time()-T)
         BRW.close()
 
     Step = int(SamplingRate/DownsamplingFrequency)
@@ -222,23 +238,31 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
 
     return AuxData, Frames2Save+StartFrame
 
-def ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime = 0, Duration = 0.05):#to modify 
+def ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime = 0, Duration = 0.05):#to modify
     """
-    Selected a BRW file, a well and a channel in the well,
-    this function reads the activity signal of the channel during the experiment
-    
-    Args:
-        BRW (BrwFile): file BRW opened from its path.
-        WellID (str): identifier of the selected well.
-        DownsamplingFrequency (float): chosen sampling frequency.
-        row (int): number from 0 to the maximum number of channel rows.
-        col (int): number from 0 to the maximum number of channel columns.
-        StartTime (float): starting time in seconds. Defaults to 0.
-        Duration (float): Duration of the measurement (in second). Defaults to 0.05.
-    
-    Returns:
-        AuxData (np.ndarray): array that contains the signals measured in the selected channel.
-        Frames2Save (np.ndarray): array that contains the frames relative to measurements in AuxData.
+    Read the activity trace for one channel in a selected well.
+
+    Parameters
+    ----------
+    BRW : h5py.File
+        Opened BRW file.
+    WellID : str
+        Identifier of the selected well.
+    DownsamplingFrequency : float
+        Target sampling frequency in Hz.
+    row : int
+        Channel row index.
+    col : int
+        Channel column index.
+    StartTime : float, optional
+        Start time in seconds. Default is 0.
+    Duration : float, optional
+        Measurement duration in seconds. Default is 0.05.
+
+    Returns
+    -------
+    tuple
+        Selected channel signal and the corresponding frame indices.
     """
 
     Data, Frames2Save = ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime, Duration)
@@ -246,34 +270,43 @@ def ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime
         NumChannels = np.array(BRW[WellID + '/StoredChIdxs']).shape[0]
     except KeyError:
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        NumChannels = len(Info['CorePlateData']['StoredPlateElIdxs']) 
+        NumChannels = len(Info['CorePlateData']['StoredPlateElIdxs'])
     AuxData = Data[:,row*NumChannels+col]
 
     return AuxData, Frames2Save
 
-def PlotRawData(BRW, WellID, title, DownsamplingFrequency, row, col, StartTime=0, Duration=0.05): 
+def PlotRawData(BRW, WellID, title, DownsamplingFrequency, row, col, StartTime=0, Duration=0.05):
     """
-    Selected a BRW file, a well and a channel in the well,
-    this function prints a graphic of the channel activity signal
-    
-    Args:
-        BRW (BrwFile): file BRW opened from its path.
-        WellID (str): identifier of the selected well.
-        DownsamplingFrequency (float): chosen sampling frequency.
-        row (int): number from 0 to 63 that selects the row of the channel in the well.
-        col (int): number from 0 to 63 that selects the column of the channel in the well.
-        StartTime (float): starting time in seconds. Defaults to 0.
-        Duration (float): Duration of the measurement (in second). Defaults to 0.05.
+    Plot and save the activity trace for one channel in a selected well.
+
+    Parameters
+    ----------
+    BRW : h5py.File
+        Opened BRW file.
+    WellID : str
+        Identifier of the selected well.
+    title : str
+        Output PNG filename without extension.
+    DownsamplingFrequency : float
+        Target sampling frequency in Hz.
+    row : int
+        Channel row index.
+    col : int
+        Channel column index.
+    StartTime : float, optional
+        Start time in seconds. Default is 0.
+    Duration : float, optional
+        Measurement duration in seconds. Default is 0.05.
     """
     try:
         SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
-   
+
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate *(StartTime+Duration))
-   
+
     Y, Frames2Save = ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime, Duration)
     X = Frames2Save/SamplingRate
     Y = np.transpose(Y)
@@ -288,21 +321,31 @@ def PlotRawData(BRW, WellID, title, DownsamplingFrequency, row, col, StartTime=0
 
 def SingleChannelFramesWithPeaks(BRW, WellID, DownsamplingFrequency, row, col, StartTime=0, Duration = 0.05, Threshold=0):
     """
-    This function returns the frames for the channel define by row and colum
-    where we have a peak larger than a threshold defined by the user
-    
-    Args:
-        BRW (BrwFile): file BRW opened from its path.
-        WellID (str): identifier of the selected well.
-        DownsamplingFrequency (float): chosen sampling frequency.
-        row (int): number from 0 to 63 that selects the row of the channel in the well.
-        col (int): number from 0 to 63 that selects the column of the channel in the well.
-        StartTime (float): starting time in seconds. Defaults to 0.
-        Duration (float): Duration of the measurement (in second). Defaults to 0.05.
-        Threshold (float): the threshold on the level of activity. Defaults to 0.
-    
-    Returns:
-        FramesWithPeaks (np.ndarray): array that contains the frames of the peaks.
+    Return peak frame indices for one selected channel.
+
+    Parameters
+    ----------
+    BRW : h5py.File
+        Opened BRW file.
+    WellID : str
+        Identifier of the selected well.
+    DownsamplingFrequency : float
+        Target sampling frequency in Hz.
+    row : int
+        Channel row index.
+    col : int
+        Channel column index.
+    StartTime : float, optional
+        Start time in seconds. Default is 0.
+    Duration : float, optional
+        Measurement duration in seconds. Default is 0.05.
+    Threshold : float, optional
+        Peak detection threshold. Default is 0.
+
+    Returns
+    -------
+    numpy.ndarray
+        Frame indices where peaks are detected.
     """
     Y, Frames2Save = ReadingSingleChannel(BRW, WellID, DownsamplingFrequency, row, col, StartTime, Duration)
     Y = np.transpose(Y)
@@ -312,22 +355,30 @@ def SingleChannelFramesWithPeaks(BRW, WellID, DownsamplingFrequency, row, col, S
 
 def FramesWithPeaks(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05, Percentage = 0, Threshold=0):
     """
-    This function returns the frames where we have peaks
-    larger or lower than a threshold defined by the user
-    
-    Args:
-        BRW (BrwFile): file BRW opened from its path.
-        WellID (str): identifier of the selected well.
-        DownsamplingFrequency (float): chosen sampling frequency.
-        StartTime (float, optional): starting time in seconds. Defaults to 0.
-        Duration (float): Duration of the measurement (in second). Defaults to 0.05.
-        Percentage (int): Percentage of the channel with peaks. Defaults to 0.
-        Threshold (float): the threshold on the level of activity. Defaults to 0.
-    
-    Returns:
-        np.ndarray: (array): array that contains the frames of the peaks for all the channels.
-        FramesUnderPerc (list): it contains the frames with a number of peaks smaller than Percentage*NumChannels.
-        FramesOverPerc (list): it contains the frames with a number of peaks larger than Percentage*NumChannels.
+    Detect peak frames across all channels in a selected time interval.
+
+    Parameters
+    ----------
+    BRW : h5py.File
+        Opened BRW file.
+    WellID : str
+        Identifier of the selected well.
+    DownsamplingFrequency : float
+        Target sampling frequency in Hz.
+    StartTime : float, optional
+        Start time in seconds. Default is 0.
+    Duration : float, optional
+        Measurement duration in seconds. Default is 0.05.
+    Percentage : float, optional
+        Fraction of channels used as the peak-count threshold. Default is 0.
+    Threshold : float, optional
+        Peak detection threshold. Default is 0.
+
+    Returns
+    -------
+    tuple
+        Binary peak matrix, frames below the channel-percentage threshold, and
+        frames above or equal to the channel-percentage threshold.
     """
     Data, Frames2Save = ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime, Duration)
     NumChannels = Data.shape[1]
@@ -347,25 +398,31 @@ def FramesWithPeaks(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration 
             FramesOverPerc.append(NumPeaks[T])
         else:
             FramesUnderPerc.append(NumPeaks[T])
-    
+
     return  MatrixPeaks, FramesUnderPerc, FramesOverPerc
 
-def BRW2df(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05): 
+def BRW2df(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
 
     """
-    Selected a BrwFile and a well, this function creates 2 dataframe:
-    - one with the coordinates of the channels and
-    - one with the evolution over time of the activity maps of the well
-    
-    Args:
-        BRW (BrwFile): file BRW opened from its path.
-        WellID (str): identifier of the selected well.
-        DownsamplingFrequency (float): chosen sampling frequency.
-        StartTime (float): starting time in seconds. Defaults to 0.
-        Duration (float): Duration of the measurement (in second). Defaults to 0.05.
-    
-    Returns:
-        DataFrame, DataFrame: -DfXY is a pandas dataframe where we saved the couples (X,Y) that indicate the coordinates of the channels (we read channels row by row). -DfAL is a pandas data frame where we saved frames and their respective activity maps vectorized like we read channels.
+    Convert BRW activity maps and channel coordinates to dataframes.
+
+    Parameters
+    ----------
+    BRW : h5py.File
+        Opened BRW file.
+    WellID : str
+        Identifier of the selected well.
+    DownsamplingFrequency : float
+        Target sampling frequency in Hz.
+    StartTime : float, optional
+        Start time in seconds. Default is 0.
+    Duration : float, optional
+        Measurement duration in seconds. Default is 0.05.
+
+    Returns
+    -------
+    tuple
+        Channel-coordinate dataframe and activity-map dataframe.
     """
     Dim1 = int(np.sqrt(np.array(BRW[WellID + '/StoredChIdxs']).shape[0]))
     Dim2 = Dim1
@@ -388,19 +445,27 @@ def BRW2df(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
 
 def SpikesActivityLevel(BRW, bxr, WellID, DownsamplingFrequency, StartTime = 0, Duration = 0.05):
     """
-    This function creates a matrix (number of frames saved x channels) where the entry ij is not zero if and only if
-    the channel j has a spike at frame i; the entry is equal to the activity level of the channel j at frame i
-    
-    Args:
-        BRW (BrwFile): BRW file.
-        bxr (BXRFile): BRW file.
-        WellID (str): identifier of the selected well.
-        DownsamplingFrequency (float): chosen sampling frequency.
-        StartTime (float): starting time in seconds. Defaults to 0.
-        Duration (float): Duration of the measurement (in second). Defaults to 0.05.
-    
-    Returns:
-        SpikesAL (np.ndarray): matrix where the entry ij is not zero if and only if the channel j has a spike at frame i.
+    Build an activity-level matrix at detected spike frames.
+
+    Parameters
+    ----------
+    BRW : h5py.File
+        Opened BRW file.
+    bxr : h5py.File
+        Opened BXR file containing spike times and channels.
+    WellID : str
+        Identifier of the selected well.
+    DownsamplingFrequency : float
+        Target sampling frequency in Hz.
+    StartTime : float, optional
+        Start time in seconds. Default is 0.
+    Duration : float, optional
+        Measurement duration in seconds. Default is 0.05.
+
+    Returns
+    -------
+    numpy.ndarray
+        Matrix whose nonzero entries contain channel activity at spike frames.
     """
     try:
         SamplingRate = BRW.attrs['SamplingRate']
@@ -413,23 +478,233 @@ def SpikesActivityLevel(BRW, bxr, WellID, DownsamplingFrequency, StartTime = 0, 
     SpikesAL = np.zeros((Data.shape[0],Data.shape[1]))
     for I in range(len(SpikeFrames)):
         print('Spike at frame '+str(SpikeFrames[I])+', channel number '+str(SpikeChannels[I]+1))
-        SpikesAL[SpikeFrames[I]-StartFrame-1][SpikeChannels[I]] = Data[SpikeFrames[I]-StartFrame-1][SpikeChannels[I]] 
-    return SpikesAL  
+        SpikesAL[SpikeFrames[I]-StartFrame-1][SpikeChannels[I]] = Data[SpikeFrames[I]-StartFrame-1][SpikeChannels[I]]
+    return SpikesAL
+
+def LoopReading(Ch, NumChannels, Duration, TotDuration, BRW, WellID, SamplingRate, StartTime, PathRis, GridWidth=64):
+    """
+    Read one BRW channel in consecutive chunks and save the full trace.
+
+    The saved file is named ``ch<Ch>.npy`` and is written inside ``PathRis``.
+    The row/column calculation preserves the behavior used in the original
+    extraction script.
+
+    Parameters
+    ----------
+    Ch : int
+        Channel index to read.
+    NumChannels : int
+        Number of stored channels.
+    Duration : float
+        Chunk duration in seconds.
+    TotDuration : float
+        Total recording duration in seconds.
+    BRW : h5py.File
+        Opened BRW file.
+    WellID : str
+        Identifier of the selected well.
+    SamplingRate : float
+        Sampling rate in Hz.
+    StartTime : float
+        Initial reading time in seconds.
+    PathRis : str
+        Output directory for channel traces.
+    GridWidth : int, optional
+        Number of channels per row. Default is 64.
+
+    Returns
+    -------
+    str
+        Path of the saved ``.npy`` file.
+    """
+    os.makedirs(PathRis, exist_ok=True)
+    Row = np.int16(np.floor(Ch / NumChannels))
+    Col = Ch - GridWidth * Row
+    print(Ch)
+
+    DataFull = np.array([])
+    Count = 0
+    while (Count + 1) * Duration < TotDuration:
+        DataChunk, _ = ReadingSingleChannel(
+            BRW,
+            WellID,
+            SamplingRate,
+            Row,
+            Col,
+            StartTime + Count * Duration,
+            Duration,
+        )
+        Count = Count + 1
+        DataFull = np.concatenate([DataFull, DataChunk.copy()])
+
+    OutputPath = os.path.join(PathRis, 'ch' + str(Ch) + '.npy')
+    np.save(OutputPath, DataFull)
+    return OutputPath
+
+
+def LoopSpikeDetection(
+    Ch,
+    PathInput,
+    PathSpike,
+    NotchCut,
+    LowCut,
+    HighCut,
+    SamplingRate,
+    NumFrames,
+    IdxNumber=41,
+    HalfIdxNumber=None,
+    Threshold=5,
+    SpikeDetectionFunction=None,
+):
+    """
+    Detect spikes for one saved channel trace and save spike arrays.
+
+    This function loads ``ch<Ch>.npy`` from ``PathInput``, applies median
+    subtraction, notch filtering, band-pass filtering, positive/negative spike
+    detection, waveform extraction, and saves three arrays in ``PathSpike``:
+    ``spikes_ch<Ch>.npy``, ``frames_ch<Ch>.npy``, and ``label_ch<Ch>.npy``.
+
+    Parameters
+    ----------
+    Ch : int
+        Channel index.
+    PathInput : str
+        Directory containing ``ch<Ch>.npy`` traces.
+    PathSpike : str
+        Output directory for spike, frame, and label arrays.
+    NotchCut : float
+        Notch filter frequency.
+    LowCut : float
+        Band-pass low-cut frequency.
+    HighCut : float
+        Band-pass high-cut frequency.
+    SamplingRate : float
+        Sampling rate in Hz.
+    NumFrames : int
+        Total number of frames in the recording.
+    IdxNumber : int, optional
+        Waveform window length. Default is 41.
+    HalfIdxNumber : int, optional
+        Half window length. If omitted, ``IdxNumber // 2`` is used.
+    Threshold : float, optional
+        Spike detection threshold. Default is 5.
+    SpikeDetectionFunction : callable, optional
+        Custom spike detector. If omitted, ``brain_3d.SpikeSorting.SpikesDetection``
+        is imported lazily.
+
+    Returns
+    -------
+    tuple
+        Paths of saved spike, frame, and label arrays.
+    """
+    if HalfIdxNumber is None:
+        HalfIdxNumber = np.int16(np.floor(IdxNumber / 2))
+    if SpikeDetectionFunction is None:
+        from . import SpikeSorting
+        SpikeDetectionFunction = SpikeSorting.SpikesDetection
+
+    os.makedirs(PathSpike, exist_ok=True)
+    print(Ch)
+
+    DataFull = np.load(os.path.join(PathInput, 'ch' + str(Ch) + '.npy'))
+    MedianData = np.median(DataFull)
+    DataFull = DataFull - MedianData
+    DataFull = NotchFilter(DataFull, NotchCut, SamplingRate)
+    DataFull = BandpassFilter(DataFull, LowCut, HighCut, SamplingRate)
+    DataFull = DataFull - np.mean(DataFull)
+
+    Step = int(SamplingRate * 0.05)
+    FramesN = SpikeDetectionFunction(DataFull, Step, Threshold, "neg")
+    FramesP = SpikeDetectionFunction(DataFull, Step, Threshold, "pos")
+
+    FramesPNew = []
+    FramesNNew = set(FramesN)
+    L = 0
+    while L < len(FramesP):
+        PreviousNegativeFrames = set(np.array(range(FramesP[L] - HalfIdxNumber, FramesP[L]))) & set(FramesN)
+        FollowingNegativeFrames = set(np.array(range(FramesP[L], FramesP[L] + HalfIdxNumber + 1))) & set(FramesN)
+
+        if len(PreviousNegativeFrames) > 0:
+            F = sorted(PreviousNegativeFrames)[-1]
+            if np.abs(DataFull[F]) < np.abs(DataFull[FramesP[L]]):
+                FramesPNew.append(FramesP[L])
+                if F in FramesNNew:
+                    FramesNNew.remove(F)
+        elif len(FollowingNegativeFrames) > 0:
+            F = sorted(FollowingNegativeFrames)[0]
+            if np.abs(DataFull[F]) < np.abs(DataFull[FramesP[L]]):
+                FramesPNew.append(FramesP[L])
+                if F in FramesNNew:
+                    FramesNNew.remove(F)
+        else:
+            FramesPNew.append(FramesP[L])
+        L = L + 1
+
+    FramesP = sorted(FramesPNew)
+    FramesN = sorted(FramesNNew)
+
+    DatasetN = np.zeros((len(FramesN), IdxNumber))
+    for K in range(len(FramesN)):
+        PeakFrame = FramesN[K]
+        if PeakFrame < HalfIdxNumber:
+            DatasetN[K, HalfIdxNumber - PeakFrame:IdxNumber] = DataFull[0:PeakFrame + HalfIdxNumber + 1]
+        elif PeakFrame >= NumFrames - HalfIdxNumber:
+            Aux = DataFull[PeakFrame - HalfIdxNumber:NumFrames]
+            DatasetN[K, 0:len(Aux)] = Aux
+        else:
+            DatasetN[K] = DataFull[PeakFrame - HalfIdxNumber:PeakFrame + HalfIdxNumber + 1]
+
+    DatasetP = np.zeros((len(FramesP), IdxNumber))
+    for K in range(len(FramesP)):
+        PeakFrame = FramesP[K]
+        if PeakFrame < HalfIdxNumber:
+            DatasetP[K, HalfIdxNumber - PeakFrame:IdxNumber] = DataFull[0:PeakFrame + HalfIdxNumber + 1]
+        elif PeakFrame >= NumFrames - HalfIdxNumber - 1:
+            Aux = DataFull[PeakFrame - HalfIdxNumber:NumFrames]
+            DatasetP[K, 0:len(Aux)] = Aux
+        else:
+            DatasetP[K] = DataFull[PeakFrame - HalfIdxNumber:PeakFrame + HalfIdxNumber + 1]
+
+    DatasetTot = np.zeros((DatasetN.shape[0] + DatasetP.shape[0], IdxNumber))
+    DatasetTot[0:DatasetN.shape[0]] = DatasetN
+    DatasetTot[DatasetN.shape[0]:DatasetN.shape[0] + DatasetP.shape[0]] = DatasetP
+
+    FramesTot = np.concatenate([FramesN, FramesP])
+    Label = np.concatenate([np.zeros([DatasetN.shape[0], 1]), np.ones([DatasetP.shape[0], 1])])
+
+    SpikePath = os.path.join(PathSpike, 'spikes_ch' + str(Ch) + '.npy')
+    FramesPath = os.path.join(PathSpike, 'frames_ch' + str(Ch) + '.npy')
+    LabelPath = os.path.join(PathSpike, 'label_ch' + str(Ch) + '.npy')
+    np.save(SpikePath, DatasetTot)
+    np.save(FramesPath, FramesTot)
+    np.save(LabelPath, Label)
+
+    return SpikePath, FramesPath, LabelPath
+
 
 def BandpassFilter(Data, Lowcut, Highcut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
-    Band pass filter
-    
-    Args:
-        Data (float): signals to be filtered.
-        Lowcut (float): lower limit of the band frequency.
-        Highcut (float): upper limit of the band frequency.
-        SamplingRate (float): signal sampling rate.
-        nfilter (int): the order of the filter. Defaults to 3.
-        PercSamplingRate (float): factor for downsample. Defaults to 0.5.
-    
-    Returns:
-        float: the filtered signal.
+    Apply a band-pass filter to a signal.
+
+    Parameters
+    ----------
+    Data : array-like
+        Signal to filter.
+    Lowcut : float
+        Lower cutoff frequency.
+    Highcut : float
+        Upper cutoff frequency.
+    SamplingRate : float
+        Signal sampling rate in Hz.
+    nfilter : int, optional
+        Filter order. Default is 3.
+    PercSamplingRate : float, optional
+        Nyquist scaling factor. Default is 0.5.
+
+    Returns
+    -------
+    numpy.ndarray
+        Filtered signal.
     """
     B,A = butter(nfilter, [Lowcut/(PercSamplingRate*SamplingRate), Highcut/(PercSamplingRate *SamplingRate)], btype = 'band' )
     Filtered = filtfilt(B, A, Data)
@@ -438,17 +713,25 @@ def BandpassFilter(Data, Lowcut, Highcut, SamplingRate, nfilter=3, PercSamplingR
 
 def HighpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
-    High pass filter
-    
-    Args:
-        Data (float): signals to be filtered.
-        Cut (float): Frequency to remove from the signal.
-        SamplingRate (float): signal sampling rate.
-        nfilter (int): the order of the filter. Defaults to 3.
-        PercSamplingRate (float): factor for downsample. Defaults to 0.5.
-    
-    Returns:
-        float: the filtered signal.
+    Apply a high-pass filter to a signal.
+
+    Parameters
+    ----------
+    Data : array-like
+        Signal to filter.
+    Cut : float
+        Cutoff frequency.
+    SamplingRate : float
+        Signal sampling rate in Hz.
+    nfilter : int, optional
+        Filter order. Default is 3.
+    PercSamplingRate : float, optional
+        Nyquist scaling factor. Default is 0.5.
+
+    Returns
+    -------
+    numpy.ndarray
+        Filtered signal.
     """
     B, A = butter(nfilter, Cut / (PercSamplingRate*SamplingRate), btype='high')
     Filtered = filtfilt(B, A, Data)
@@ -458,15 +741,22 @@ def HighpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
 def NotchFilter(Data, Cut, SamplingRate, qf=3):
     """
     Apply a notch filter to remove a specific frequency from the signal.
-    
-    Args:
-        Data (float): signals to be filtered.
-        Cut (float): Frequency to remove from the signal.
-        SamplingRate (float): signal sampling rate.
-        qf (int): Quality factor. Defaults to 3.
-    
-    Returns:
-        float: the filtered signal.
+
+    Parameters
+    ----------
+    Data : array-like
+        Signal to filter.
+    Cut : float
+        Frequency to remove from the signal.
+    SamplingRate : float
+        Signal sampling rate in Hz.
+    qf : int, optional
+        Quality factor. Default is 3.
+
+    Returns
+    -------
+    numpy.ndarray
+        Filtered signal.
     """
     B, A = iirnotch(Cut, qf, SamplingRate)
     Filtered = filtfilt(B, A, Data)
@@ -476,16 +766,24 @@ def NotchFilter(Data, Cut, SamplingRate, qf=3):
 def LowpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
     """
     Apply a low-pass filter to remove high-frequency components from the signal.
-    
-    Args:
-        Data (float): signals to be filtered.
-        Cut (float): Frequency to remove from the signal.
-        SamplingRate (float): signal sampling rate.
-        nfilter (int): the order of the filter. Defaults to 3.
-        PercSamplingRate (float): factor for downsample. Defaults to 0.5.
-    
-    Returns:
-        float: the filtered signal.
+
+    Parameters
+    ----------
+    Data : array-like
+        Signal to filter.
+    Cut : float
+        Cutoff frequency.
+    SamplingRate : float
+        Signal sampling rate in Hz.
+    nfilter : int, optional
+        Filter order. Default is 3.
+    PercSamplingRate : float, optional
+        Nyquist scaling factor. Default is 0.5.
+
+    Returns
+    -------
+    numpy.ndarray
+        Filtered signal.
     """
     B, A = butter(nfilter, Cut / (PercSamplingRate*SamplingRate), btype='low')
     Filtered = filtfilt(B, A, Data)
@@ -494,30 +792,38 @@ def LowpassFilter(Data, Cut, SamplingRate, nfilter=3, PercSamplingRate=0.5):
 
 def CommonAverageReference(Data):
     """
-    The median and then the mean are removed form the data
-    
-    Args:
-        Data (float): signals to be transformed.
-    
-    Returns:
-        float: the transformed signal.
+    Apply common-average referencing after median subtraction.
+
+    Parameters
+    ----------
+    Data : numpy.ndarray
+        Signal matrix to transform.
+
+    Returns
+    -------
+    numpy.ndarray
+        Transformed signal matrix.
     """
     Median = np.median(Data, 1)
     Data = (Data.T - Median).T
     Mu = np.mean(Data,0)
     Data = Data - Mu
-    
+
     return Data
 
 def WienerFilter(Data):
     """
-    Wiener filter
-    
-    Args:
-        Data (float): signals to be filtered.
-    
-    Returns:
-        float: the filtered signal.
+    Apply a Wiener filter to a signal.
+
+    Parameters
+    ----------
+    Data : array-like
+        Signal to filter.
+
+    Returns
+    -------
+    numpy.ndarray
+        Filtered signal.
     """
     Data = wiener(Data)
 
@@ -526,13 +832,18 @@ def WienerFilter(Data):
 def PercentileFilter(Data, percentile):
     """
     Apply a percentile filter to remove frequency components below a specified magnitude percentile.
-    
-    Args:
-        Data (float): signals to be filtered.
-        percentile (float): the magnitude percentile we want to remove from the data.
-    
-    Returns:
-        float: the filtered signal.
+
+    Parameters
+    ----------
+    Data : array-like
+        Signal to filter.
+    percentile : float
+        Magnitude percentile below which frequency components are removed.
+
+    Returns
+    -------
+    numpy.ndarray
+        Filtered signal.
     """
     Spectrum = np.fft.fft(Data)
     Magnitude = np.abs(Spectrum)
@@ -540,19 +851,559 @@ def PercentileFilter(Data, percentile):
     Spectrum[Magnitude < Threshold] = 0
     Filtered = np.fft.ifft(Spectrum)
 
-    return Filtered 
+    return Filtered
 
-def PlotlyGraph(Data, ch):
+def SpikesMetric(SamplingRate, NumFrames, SpikesN, SpikesP, DatasetN, DatasetP, Threshold=0.25):
     """
-    Plot a data channel to an HTML file using Plotly.
-    
-    Args:
-        Data (float): data to be plotted.
-        ch (int): sensor to be plotted.
-    
-    Returns:
-        None: Generates an HTML file named 'Graph_channel_<ch>.html'.
+    Compute spike metrics for each channel and for the whole well.
+
+    Negative and positive spike frames are merged using set union. For each
+    unique spike frame, the corresponding waveform is retrieved from the
+    negative or positive dataset and used to compute the peak-to-peak amplitude.
+
+    If the same frame is present both in negative and positive spikes, the
+    negative waveform is used first.
+
+    Parameters
+    ----------
+    SamplingRate : float
+        Acquisition sampling rate in Hz.
+    NumFrames : int
+        Total number of frames in the recording.
+    SpikesN : list
+        Negative spike frames for each channel.
+    SpikesP : list
+        Positive spike frames for each channel.
+    DatasetN : list
+        Negative spike waveforms for each channel.
+    DatasetP : list
+        Positive spike waveforms for each channel.
+    Threshold : float, optional
+        Minimum spike rate required to define an active electrode.
+        Default is 0.25 Hz.
+
+    Returns
+    -------
+    tuple
+        Spike metrics including spike count, spike rate, ISI metrics,
+        active electrode IDs, and peak-to-peak metrics.
     """
-    Df = pd.DataFrame({'x_axis': np.arange(Data.shape[0]), 'y_axis': Data[:,ch] })
-    Fig = px.line(Df, x='x_axis', y='y_axis', title='Channel '+str(ch))
-    Fig.write_html('Graph_channel_'+str(ch)+'.html')   
+
+    NChs = len(SpikesN)
+
+    SpikesCount = np.zeros(NChs)
+    ISIMap = np.zeros(NChs)
+    ISIVarianceMap = np.zeros(NChs)
+    PeakToPeakMap = np.zeros(NChs)
+    PeakToPeakStd = np.zeros(NChs)
+
+    SpikesFramesWell = []
+    PeakToPeakWell = []
+
+    for Ch in range(NChs):
+        SpikesFramesN = np.asarray(SpikesN[Ch])
+        SpikesFramesP = np.asarray(SpikesP[Ch])
+        SetN = set(SpikesFramesN)
+        SetP = set(SpikesFramesP)
+        SpikesFrames = np.array(sorted(SetN | SetP))
+        PeakToPeakCh = np.zeros(len(SpikesFrames))
+        if len(SpikesFrames) > 0:
+            DatasetSpikes = []
+            for Frame in SpikesFrames:
+                if Frame in SetN:
+                    FrameIndex = np.where(SpikesFramesN == Frame)[0][0]
+                    DatasetSpikes.append(DatasetN[Ch][FrameIndex])
+                elif Frame in SetP:
+                    FrameIndex = np.where(SpikesFramesP == Frame)[0][0]
+                    DatasetSpikes.append(DatasetP[Ch][FrameIndex])
+            DatasetSpikes = np.asarray(DatasetSpikes)
+            PeakToPeakCh = np.max(DatasetSpikes, axis=1) - np.min(DatasetSpikes, axis=1)
+            SpikesFramesWell.append(SpikesFrames)
+            PeakToPeakWell.append(PeakToPeakCh)
+            PeakToPeakMap[Ch] = np.mean(PeakToPeakCh)
+            if PeakToPeakMap[Ch] != 0:
+                PeakToPeakStd[Ch] = np.std(PeakToPeakCh) / PeakToPeakMap[Ch]
+            SpikesCount[Ch] = len(SpikesFrames)
+            if len(SpikesFrames) > 1:
+                ISICh = np.diff(SpikesFrames) / SamplingRate * 1000
+                ISIMap[Ch] = np.mean(ISICh)
+                if ISIMap[Ch] != 0:
+                    ISIVarianceMap[Ch] = np.std(ISICh) / ISIMap[Ch]
+        else:
+            SpikesFramesWell.append(np.array([]))
+            PeakToPeakWell.append(np.array([]))
+
+    SpikesRate = SpikesCount / NumFrames * SamplingRate
+    ActiveElectrodesMap = SpikesRate.copy()
+    ActiveElectrodesID = np.where(ActiveElectrodesMap >= Threshold)[0]
+    NonActiveElectrodesID = list(np.arange(NChs))
+    ActiveElectrodesNumber = len(ActiveElectrodesID)
+    SpikesFramesAE = set()
+    PeakToPeakAE = []
+    for Ch in ActiveElectrodesID:
+        NonActiveElectrodesID.remove(Ch)
+        SpikesFramesAE = SpikesFramesAE | set(SpikesFramesWell[Ch])
+        for PeakToPeakValue in PeakToPeakWell[Ch]:
+            PeakToPeakAE.append(PeakToPeakValue)
+    SpikesCount[NonActiveElectrodesID] = 0
+    PeakToPeakMap[NonActiveElectrodesID] = 0
+    PeakToPeakStd[NonActiveElectrodesID] = 0
+    SpikesRate[NonActiveElectrodesID] = 0
+    ISIMap[NonActiveElectrodesID] = 0
+    ISIVarianceMap[NonActiveElectrodesID] = 0
+    SpikesFramesAE = np.array(sorted(SpikesFramesAE))
+    if len(SpikesFramesAE) > 1:
+        ISIWell = np.diff(SpikesFramesAE) / SamplingRate * 1000
+        ISIWellAverage = np.mean(ISIWell)
+        if ISIWellAverage != 0:
+            ISIVarianceWell = np.std(ISIWell) / ISIWellAverage
+        else:
+            ISIVarianceWell = 0
+    else:
+        ISIWellAverage = 0
+        ISIVarianceWell = 0
+
+    NSpikesWell = np.sum(SpikesCount)
+    SpikesWellRate = NSpikesWell / NumFrames * SamplingRate
+    if len(PeakToPeakAE) > 0:
+        PeakToPeakAverageWell = np.mean(PeakToPeakAE)
+        if PeakToPeakAverageWell != 0:
+            PeakToPeakStdWell = np.std(np.asarray(PeakToPeakAE)) / PeakToPeakAverageWell
+        else:
+            PeakToPeakStdWell = 0
+    else:
+        PeakToPeakAverageWell = 0
+        PeakToPeakStdWell = 0
+
+    return (
+        SamplingRate,
+        NumFrames,
+        SpikesN,
+        SpikesP,
+        SpikesFramesAE,
+        SpikesCount,
+        SpikesRate,
+        ISIMap,
+        ISIVarianceMap,
+        ISIWellAverage,
+        ISIVarianceWell,
+        NSpikesWell,
+        SpikesWellRate,
+        ActiveElectrodesID,
+        ActiveElectrodesNumber,
+        PeakToPeakMap,
+        PeakToPeakStd,
+        PeakToPeakAverageWell,
+        PeakToPeakStdWell,
+    )
+
+
+def BurstsMetric(
+    SamplingRate,
+    NumFrames,
+    SpikesN,
+    SpikesP,
+    SpikesFramesAE,
+    SpikesCount,
+    NSpikesWell,
+    ActiveElectrodesID,
+    NMinSpikes=5,
+    ISIMaxSeconds=0.1,
+):
+    """
+    Compute burst metrics for each active electrode and for the whole well.
+
+    The function receives the outputs of ``SpikesMetric`` directly, instead of
+    calling ``SpikesMetric`` internally. Bursts are detected as sequences of at
+    least ``NMinSpikes`` spikes whose consecutive inter-spike intervals are not
+    larger than ``ISIMaxSeconds``.
+
+    Parameters
+    ----------
+    SamplingRate : float
+        Acquisition sampling rate in Hz.
+    NumFrames : int
+        Total number of frames in the recording.
+    SpikesN : list
+        Negative spike frames for each channel.
+    SpikesP : list
+        Positive spike frames for each channel.
+    SpikesFramesAE : numpy.ndarray
+        Sorted unique spike frames across active electrodes.
+    SpikesCount : numpy.ndarray
+        Number of spikes for each channel.
+    NSpikesWell : int or float
+        Total number of spikes in active electrodes.
+    ActiveElectrodesID : numpy.ndarray
+        IDs of active electrodes.
+    NMinSpikes : int, optional
+        Minimum number of consecutive spikes required to define a burst.
+        Default is 5.
+    ISIMaxSeconds : float, optional
+        Maximum inter-spike interval inside a burst, in seconds.
+        Default is 0.1.
+
+    Returns
+    -------
+    tuple
+        Burst metrics for active electrodes and for the whole well.
+    """
+
+    NChs = len(SpikesN)
+    ISIMaxFrames = int(SamplingRate * ISIMaxSeconds)
+
+    Bursts = [[] for _ in range(NChs)]
+    IBI = [[] for _ in range(NChs)]
+    IBIAverage = []
+    IBIStd = []
+
+    BurstsDuration = [[] for _ in range(NChs)]
+    BurstsNSpikes = [[] for _ in range(NChs)]
+    BurstsDurationAverage = []
+    BurstsNSpikesAverage = []
+    BurstsISI = [[] for _ in range(NChs)]
+    BurstsISIAverage = []
+    NBursts = []
+    ActiveElectrodesSet = set(ActiveElectrodesID)
+
+    for Ch in range(NChs):
+        if Ch in ActiveElectrodesSet:
+            SpikesCh = np.array(sorted(set(SpikesN[Ch]) | set(SpikesP[Ch])))
+
+            if len(SpikesCh) >= NMinSpikes:
+                I = 0
+                while I <= len(SpikesCh) - NMinSpikes:
+                    IdxBurstStart = I
+                    BurstStart = SpikesCh[I]
+                    MaxBurstWindow = ISIMaxFrames * (NMinSpikes - 1)
+                    if SpikesCh[I + NMinSpikes - 1] <= BurstStart + MaxBurstWindow:
+                        ISIBursts = np.diff(SpikesCh[I:I + NMinSpikes])
+                        if np.max(ISIBursts) <= ISIMaxFrames:
+                            I = I + NMinSpikes - 1
+                            while (
+                                I < len(SpikesCh) - 1
+                                and SpikesCh[I + 1] <= SpikesCh[I] + ISIMaxFrames
+                            ):
+                                I = I + 1
+                            IdxBurstEnd = I
+                            BurstFrames = SpikesCh[IdxBurstStart:IdxBurstEnd + 1]
+                            Bursts[Ch].append(BurstFrames)
+                            BurstsNSpikes[Ch].append(len(BurstFrames))
+                            BurstsDuration[Ch].append(
+                                (BurstFrames[-1] - BurstFrames[0]) / SamplingRate * 1000
+                            )
+                            BurstsISI[Ch].append(
+                                ((BurstFrames[-1] - BurstFrames[0]) / (len(BurstFrames) - 1))
+                                / SamplingRate
+                                * 1000
+                            )
+                            I = I + 1
+                        else:
+                            I = I + 1
+                    else:
+                        I = I + 1
+
+            NBursts.append(len(Bursts[Ch]))
+            if NBursts[Ch] > 0:
+                BurstsDurationAverage.append(np.mean(np.asarray(BurstsDuration[Ch])))
+                BurstsNSpikesAverage.append(np.mean(np.asarray(BurstsNSpikes[Ch])))
+                BurstsISIAverage.append(np.mean(np.asarray(BurstsISI[Ch])))
+            else:
+                BurstsDurationAverage.append(0)
+                BurstsNSpikesAverage.append(0)
+                BurstsISIAverage.append(0)
+            if NBursts[Ch] > 1:
+                for J in range(NBursts[Ch] - 1):
+                    IBI[Ch].append((Bursts[Ch][J + 1][0] - Bursts[Ch][J][0]) / SamplingRate * 1000)
+                IBIAverageCh = np.mean(np.asarray(IBI[Ch]))
+                IBIAverage.append(IBIAverageCh)
+                if IBIAverageCh != 0:
+                    IBIStd.append(np.std(np.asarray(IBI[Ch])) / IBIAverageCh)
+                else:
+                    IBIStd.append(0)
+            else:
+                IBIAverage.append(0)
+                IBIStd.append(0)
+        else:
+            NBursts.append(0)
+            BurstsDurationAverage.append(0)
+            BurstsNSpikesAverage.append(0)
+            BurstsISIAverage.append(0)
+            IBIAverage.append(0)
+            IBIStd.append(0)
+    NBursts = np.asarray(NBursts)
+    BurstsRate = NBursts / NumFrames * SamplingRate * 60
+    BurstsNSpikesAverage = np.asarray(BurstsNSpikesAverage)
+    BurstsISIAverage = np.asarray(BurstsISIAverage)
+    BurstsDurationAverage = np.asarray(BurstsDurationAverage)
+    IBIAverage = np.asarray(IBIAverage)
+    IBIStd = np.asarray(IBIStd)
+    BurstsSpikesPercentage = np.zeros(NChs)
+
+    if NSpikesWell > 0:
+        for Ch in range(NChs):
+            if SpikesCount[Ch] > 0 and NBursts[Ch] > 0:
+                BurstsSpikesPercentage[Ch] = (
+                    NBursts[Ch] * BurstsNSpikesAverage[Ch] / NSpikesWell * 100
+                )
+    BurstsWell = []
+    BurstsDurationWell = []
+    BurstsISIWell = []
+    BurstsNSpikesWell = []
+    I = 0
+    while I <= len(SpikesFramesAE) - NMinSpikes:
+        IdxBurstStart = I
+        BurstStart = SpikesFramesAE[I]
+        if SpikesFramesAE[I + NMinSpikes - 1] <= BurstStart + ISIMaxFrames * (NMinSpikes - 1):
+            ISIBursts = np.diff(SpikesFramesAE[I:I + NMinSpikes])
+            if np.max(ISIBursts) <= ISIMaxFrames:
+                I = I + NMinSpikes - 1
+                while (
+                    I < len(SpikesFramesAE) - 1
+                    and SpikesFramesAE[I + 1] <= SpikesFramesAE[I] + ISIMaxFrames
+                ):
+                    I = I + 1
+                IdxBurstEnd = I
+                BurstFrames = SpikesFramesAE[IdxBurstStart:IdxBurstEnd + 1]
+                BurstsWell.append(BurstFrames)
+                BurstsNSpikesWell.append(len(BurstFrames))
+                BurstsDurationWell.append(
+                    (BurstFrames[-1] - BurstFrames[0]) / SamplingRate * 1000
+                )
+                BurstsISIWell.append(
+                    ((BurstFrames[-1] - BurstFrames[0]) / (len(BurstFrames) - 1))
+                    / SamplingRate
+                    * 1000
+                )
+                I = I + 1
+            else:
+                I = I + 1
+        else:
+            I = I + 1
+
+    NBurstsWell = len(BurstsWell)
+    BurstsRateWell = NBurstsWell / NumFrames * SamplingRate * 60
+    BurstsNSpikesWell = np.asarray(BurstsNSpikesWell)
+    BurstsDurationWell = np.asarray(BurstsDurationWell)
+    BurstsISIWell = np.asarray(BurstsISIWell)
+    if NBurstsWell > 0:
+        BurstsNSpikesWellAverage = np.mean(BurstsNSpikesWell)
+        BurstsDurationWellAverage = np.mean(BurstsDurationWell)
+        BurstsISIWellAverage = np.mean(BurstsISIWell)
+        BurstsNSpikesWellStd = (
+            np.std(BurstsNSpikesWell) / BurstsNSpikesWellAverage
+            if BurstsNSpikesWellAverage != 0
+            else 0
+        )
+        BurstsDurationWellStd = (
+            np.std(BurstsDurationWell) / BurstsDurationWellAverage
+            if BurstsDurationWellAverage != 0
+            else 0
+        )
+        BurstsISIWellStd = (
+            np.std(BurstsISIWell) / BurstsISIWellAverage
+            if BurstsISIWellAverage != 0
+            else 0
+        )
+    else:
+        BurstsNSpikesWellAverage = 0
+        BurstsNSpikesWellStd = 0
+        BurstsDurationWellAverage = 0
+        BurstsDurationWellStd = 0
+        BurstsISIWellAverage = 0
+        BurstsISIWellStd = 0
+
+    if NSpikesWell > 0:
+        BurstsSpikesPercentageWell = (
+            BurstsNSpikesWellAverage * NBurstsWell / NSpikesWell * 100
+        )
+    else:
+        BurstsSpikesPercentageWell = 0
+
+    IBIWell = []
+    if NBurstsWell > 1:
+        for J in range(NBurstsWell - 1):
+            IBIWell.append(BurstsWell[J + 1][0] - BurstsWell[J][0])
+    IBIWell = np.asarray(IBIWell) / SamplingRate * 1000
+
+    if len(IBIWell) > 0:
+        IBIWellAverage = np.mean(IBIWell)
+        if IBIWellAverage != 0:
+            IBIWellStd = np.std(IBIWell) / IBIWellAverage
+        else:
+            IBIWellStd = 0
+    else:
+        IBIWellAverage = 0
+        IBIWellStd = 0
+
+    return (
+        Bursts,
+        NBursts,
+        BurstsRate,
+        BurstsNSpikes,
+        BurstsSpikesPercentage,
+        BurstsISI,
+        BurstsISIAverage,
+        BurstsNSpikesAverage,
+        BurstsDuration,
+        BurstsDurationAverage,
+        IBI,
+        IBIAverage,
+        IBIStd,
+        BurstsWell,
+        NBurstsWell,
+        BurstsRateWell,
+        BurstsDurationWellAverage,
+        BurstsDurationWellStd,
+        IBIWell,
+        IBIWellAverage,
+        IBIWellStd,
+        BurstsNSpikesWell,
+        BurstsNSpikesWellAverage,
+        BurstsNSpikesWellStd,
+        BurstsISIWell,
+        BurstsISIWellAverage,
+        BurstsISIWellStd,
+        BurstsSpikesPercentageWell
+    )
+
+
+def NetworkBurstMetric(
+    ActiveElectrodesID,
+    Bursts,
+    SamplingRate,
+    NumFrames,
+    PercentageAE=0.5,
+    TimeWindowSeconds=0.25,
+):
+    """
+    Compute network burst metrics from precomputed burst metrics.
+
+    The function receives the outputs of ``BurstsMetric`` directly, instead of
+    calling ``BurstsMetric`` internally. A network burst is detected when the
+    number of active electrodes with at least one burst spike inside a time
+    window is greater than or equal to ``PercentageAE`` times the number of
+    active electrodes.
+
+    Parameters
+    ----------
+    ActiveElectrodesID : numpy.ndarray
+        IDs of active electrodes.
+    Bursts : list
+        Burst frame arrays for each channel.
+    SamplingRate : float
+        Acquisition sampling rate in Hz.
+    NumFrames : int
+        Total number of frames in the recording.
+    PercentageAE : float, optional
+        Fraction of active electrodes required to define a network burst.
+        Default is 0.5.
+    TimeWindowSeconds : float, optional
+        Time window for network burst detection, in seconds.
+        Default is 0.25.
+
+    Returns
+    -------
+    tuple
+        Network burst metrics: network burst counts per window, number of
+        network bursts, network burst rate, duration, spike count, spike
+        percentage, intra-network-burst ISI, inter-network-burst interval,
+        and inter-network-burst interval standard deviation.
+    """
+
+    ActiveElectrodesID = np.asarray(ActiveElectrodesID)
+    NActiveElectrodes = len(ActiveElectrodesID)
+
+    TimeWindowFrames = int(TimeWindowSeconds * SamplingRate)
+
+    if NActiveElectrodes == 0 or TimeWindowFrames <= 0:
+        return (
+            np.array([]),
+            0,
+            0,
+            np.array([]),
+            np.array([]),
+            np.array([]),
+            np.array([]),
+            np.array([]),
+            0,
+        )
+
+    BurstsSpikes = np.zeros((NActiveElectrodes, NumFrames))
+    for ActiveIndex, Ch in enumerate(ActiveElectrodesID):
+        for BurstFrames in Bursts[Ch]:
+            BurstFrames = np.asarray(BurstFrames, dtype=int)
+            BurstFrames = BurstFrames[(BurstFrames >= 0) & (BurstFrames < NumFrames)]
+            BurstsSpikes[ActiveIndex, BurstFrames] = 1
+    SpikesTot = np.sum(BurstsSpikes, axis=0)
+    SpikesTot[SpikesTot > 0] = 1
+    NSpikesTot = np.sum(SpikesTot)
+    NWindows = int(NumFrames / TimeWindowFrames)
+    if NWindows == 0:
+        return (
+            np.array([]),
+            0,
+            0,
+            np.array([]),
+            np.array([]),
+            np.array([]),
+            np.array([]),
+            np.array([]),
+            0,
+        )
+
+    TrimmedFrames = NWindows * TimeWindowFrames
+    NBSpikesMatrix = SpikesTot[:TrimmedFrames].reshape(NWindows, TimeWindowFrames)
+    NBSpikes = np.sum(NBSpikesMatrix, axis=1)
+    NBDuration = np.zeros(NWindows)
+    for I in range(NWindows):
+        SpikeIndexes = np.where(NBSpikesMatrix[I] > 0)[0]
+        if len(SpikeIndexes) > 1:
+            Start = SpikeIndexes[0]
+            End = SpikeIndexes[-1]
+            NBDuration[I] = (End - Start) / SamplingRate
+        else:
+            NBDuration[I] = 0
+
+    ActiveBurstMatrix = BurstsSpikes[:, :TrimmedFrames].reshape(
+        NActiveElectrodes,
+        NWindows,
+        TimeWindowFrames,
+    )
+
+    Result = ActiveBurstMatrix.sum(axis=2)
+    Result[Result > 0] = 1
+    NetworkBurst = np.sum(Result, axis=0)
+    IdxNB = np.where(NetworkBurst >= NActiveElectrodes * PercentageAE)[0]
+    NNB = len(IdxNB)
+    NBRate = NNB / NumFrames * SamplingRate
+    if NSpikesTot > 0:
+        NBSpikesPercentage = NBSpikes / NSpikesTot * 100
+    else:
+        NBSpikesPercentage = np.zeros_like(NBSpikes)
+    NBISI = np.zeros_like(NBDuration)
+    ValidNBSpikes = NBSpikes > 0
+    NBISI[ValidNBSpikes] = NBDuration[ValidNBSpikes] * 1000 / NBSpikes[ValidNBSpikes]
+    NBINBI = np.zeros(max(len(IdxNB) - 1, 0))
+
+    for I in range(len(NBINBI)):
+        StartIndexes = np.where(NBSpikesMatrix[IdxNB[I]] > 0)[0]
+        EndIndexes = np.where(NBSpikesMatrix[IdxNB[I + 1]] > 0)[0]
+        if len(StartIndexes) > 0 and len(EndIndexes) > 0:
+            Start = StartIndexes[-1]
+            End = EndIndexes[0] + TimeWindowFrames * (IdxNB[I + 1] - IdxNB[I])
+            NBINBI[I] = (End - Start) / SamplingRate * 1000
+
+    NBINBIVar = np.std(NBINBI) if len(NBINBI) > 0 else 0
+
+    return (
+        NetworkBurst,
+        NNB,
+        NBRate,
+        NBDuration[IdxNB],
+        NBSpikes[IdxNB],
+        NBSpikesPercentage[IdxNB],
+        NBISI[IdxNB],
+        NBINBI,
+        NBINBIVar,
+    )

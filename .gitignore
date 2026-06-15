@@ -14,6 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
+src/3D_BrAIn.egg-info/
 lib/
 lib64/
 parts/
