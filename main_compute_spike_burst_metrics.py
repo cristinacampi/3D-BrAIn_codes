@@ -1,19 +1,34 @@
 import os
 import pickle
+import sys
+from pathlib import Path
+import debugpy
+debugpy.breakpoint()
 
 import numpy as np
 import pandas as pd
 
-from brain_3d import BrwFunctions
+def add_project_src_to_path() -> None:
+    for parent in Path(__file__).resolve().parents:
+        src_path = parent / "src"
+        if (src_path / "brain_3d").is_dir():
+            sys.path.insert(0, str(src_path))
+            return
+    raise ModuleNotFoundError("Cannot find src/brain_3d from this script location.")
 
+add_project_src_to_path()
+
+from brain_3d import BrwFunctions
+print("BrwFunctions loaded from:", BrwFunctions.__file__)
 
 PATH_ROOT = '/data/26-05-28_3Brain_Ivan_PartnershipUniGe_Pasca120Days/'
-BRW_FILE = "00_1W38-60_Hu_iPSC_Brain_Org_120DIV_Spontaneous_Raw_00.brw"
+BRW_FILE = "00_1W38-60_Hu_iPSC_Brain_Org_120DIV_Spontaneous_Raw_00"
 # Directory containing spikes_ch<Channel>.npy, frames_ch<Channel>.npy and label_ch<Channel>.npy.
 SPIKE_DIR = PATH_ROOT +'/spikes/' + BRW_FILE + '/'
-SAVE_DIR = PATH_ROOT + "/metrics/' + BRW_FILE + '/spike_burst/"
+SAVE_DIR = PATH_ROOT + '/metrics/' + BRW_FILE + '/spike_burst/'
 os.makedirs(SAVE_DIR, exist_ok=True)
 
+BRW_FILE = BRW_FILE + '.brw'
 WELL_ID = "Well_A1"
 
 CHANNEL_START = 0
