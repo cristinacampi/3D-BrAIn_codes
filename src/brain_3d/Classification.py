@@ -1,4 +1,21 @@
-"""Classification utilities for extracted 3D-BrAIn features."""
+"""Classification utilities for 3D-BrAIn/MEA spike data.
+
+This module contains reusable helpers for supervised classification workflows.
+It supports two main use cases:
+
+1. classification from already extracted feature vectors stored in pickle files;
+2. classification directly from raw spike waveforms/time series using MiniRocket
+   followed by a ridge classifier.
+
+MiniRocket inputs are treated as panels of time series. A 2D array is interpreted
+as ``(samples, timepoints)`` and internally reshaped to
+``(samples, 1, timepoints)``. A 3D array is interpreted as
+``(samples, channels, timepoints)``.
+
+The functions here are intentionally independent from a specific experiment
+layout. Main scripts are responsible for deciding whether samples are split by
+recording, organoid, experimental date, or another biological grouping.
+"""
 
 import os
 import tempfile
@@ -47,7 +64,25 @@ def _require_sktime_rocket():
 
 
 def _as_time_series_panel(X):
-    """Convert time-series input to ``(n_samples, n_channels, n_timepoints)``."""
+    """Convert time-series input to a sktime-compatible panel.
+
+    Parameters
+    ----------
+    X : array-like
+        Time-series samples. Accepted shapes are ``(samples, timepoints)`` for
+        univariate waveforms, ``(samples, channels, timepoints)`` for
+        multichannel signals, or a list/tuple of arrays with compatible shapes.
+
+    Returns
+    -------
+    numpy.ndarray
+        Dense array with shape ``(samples, channels, timepoints)``.
+
+    Raises
+    ------
+    ValueError
+        If ``X`` cannot be interpreted as a panel of time series.
+    """
     if isinstance(X, (list, tuple)):
         X = np.stack([_to_dense_array(Item) for Item in X])
     else:
@@ -216,28 +251,45 @@ def extract_minirocket_features(
     multivariate=True,
     channel_group_size=None,
 ):
-    """Fit MiniRocket on train data and transform train/test time series.
+    """Fit MiniRocket on training waveforms and transform train/test data.
+
+    The extractor is fit only on ``X_train``. ``X_test`` is transformed with the
+    fitted extractor, so test samples do not leak into the feature extraction
+    stage.
+
+    Notes
+    -----
+    Even when ``multivariate=False`` and the data contain a single channel, this
+    wrapper uses ``MiniRocketMultivariate`` internally. This preserves the
+    expected ``(samples, channels, timepoints)`` panel layout in recent sktime
+    versions, where the univariate ``MiniRocket`` transformer may interpret a
+    2D numpy array as one sample instead of many samples.
 
     Parameters
     ----------
     X_train : array-like
-        train signals with shape ``(samples, timepoints)``
+        Train signals with shape ``(samples, timepoints)``
             or ``(samples, channels, timepoints)``.
     X_test : array-like, optional
-        test signals with the same channel/time layout.
+        Test signals with the same channel/time layout.
     num_kernels : int
-        number of MiniRocket kernels.
+        Number of MiniRocket kernels.
     multivariate : bool
-        use ``MiniRocketMultivariate`` for multichannel data.
+        Use the multivariate MiniRocket transformer. Single-channel data are
+        still handled through the multivariate transformer for layout safety.
     channel_group_size : int, optional
-        if set, fit one MiniRocket extractor
-            per channel block and concatenate the resulting features. This mirrors
-            the chunked strategy used in the original repository scripts.
+        If set, fit one MiniRocket extractor per channel block and concatenate
+        the resulting features. This is useful for high-channel-count MEA data.
 
     Returns
     -------
     dict
-        transformed features and fitted MiniRocket extractor(s).
+        Dictionary with:
+
+        - ``X_train``: transformed train feature matrix;
+        - ``X_test``: transformed test feature matrix, when ``X_test`` is given;
+        - ``extractors``: fitted MiniRocket extractor objects;
+        - ``channel_slices``: channel blocks used for extraction.
     """
     MiniRocket, MiniRocketMultivariate = _require_sktime_rocket()
     X_train = _as_time_series_panel(X_train)
@@ -269,10 +321,14 @@ def extract_minirocket_features(
             TransformTrain = XiTrain
             TransformTest = XiTest
         else:
-            Extractor = MiniRocket(num_kernels=num_kernels)
-            FitTrain = XiTrain[:, 0, :]
-            TransformTrain = XiTrain[:, 0, :]
-            TransformTest = None if XiTest is None else XiTest[:, 0, :]
+            # In recent sktime versions, MiniRocket on a 2D numpy array can
+            # interpret the panel as one sample. The multivariate transformer
+            # preserves the expected (samples, channels, timepoints) layout,
+            # even when there is only one channel.
+            Extractor = MiniRocketMultivariate(num_kernels=num_kernels)
+            FitTrain = XiTrain
+            TransformTrain = XiTrain
+            TransformTest = XiTest
 
         Extractor.fit(FitTrain)
         Extractors.append(Extractor)
@@ -308,6 +364,8 @@ def minirocket_classifier_cv(
 
     MiniRocket is fitted separately inside each train/test split, using only the
     training samples. This keeps the test fold out of the feature-extractor fit.
+    The function is suited for raw waveform/time-series inputs, not for feature
+    matrices that have already been transformed.
 
     Parameters
     ----------
@@ -546,7 +604,7 @@ def plot_classification_results(results, save_loc=None, save_name="classificatio
     Parameters
     ----------
     results : dict
-        output of :func:`ridge_classifier_cv`.
+        Output of :func:`ridge_classifier_cv` or :func:`minirocket_classifier_cv`.
     save_loc : str or pathlib.Path, optional
         directory where plots are saved.
     save_name : str
@@ -632,10 +690,12 @@ def classifier(
     channel_group_size=None,
     scale_rocket_features=False,
 ):
-    """Load extracted features and classify them using ``RidgeClassifierCV``.
+    """Load feature pickle files and run a complete classification workflow.
 
     This function keeps the call style of the original repository script while
     returning structured results that can be reused downstream.
+    Depending on ``use_minirocket``, the feature column is either treated as
+    already extracted features or as raw waveforms/time series.
 
     Parameters
     ----------

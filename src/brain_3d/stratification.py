@@ -930,10 +930,10 @@ def Kmeans_Algo(Data, nc2test, distance, methodKM = 'silhouette'):
             KmeansInstance = kmeans(Data, StartCenters, metric=Metric)
             # run cluster analysis and obtain results
             KmeansInstance.process()
-            Clusters = KmeansInstance.get_Clusters()
+            Clusters = KmeansInstance.get_clusters()
             NClustersPostK = len(Clusters)
             Classi.append((NClustersPostK, Clusters))
-            Centers.append(KmeansInstance.get_Centers())
+            Centers.append(KmeansInstance.get_centers())
             Labels = np.array(range(N))
             Wcss = 0
             for J in range(len(Clusters)):

@@ -42,7 +42,11 @@ def ReadBRW(Filename, WellID):
         NumChannels = np.array(BRW[WellID + '/StoredChIdxs']).shape[0]
     except KeyError:
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+        TimeConverter = Info['SignalConverter']['SampleToTimeConverter']
+        if 'FrameRateHertz' in TimeConverter:
+            SamplingRate = TimeConverter['FrameRateHertz']
+        else:
+            SamplingRate = TimeConverter['FrameRateHerz']
         NumChannels = len(Info['CorePlateData']['StoredPlateElIdxs'])
 
     Duration = NumFrames/SamplingRate
@@ -152,7 +156,11 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
         SamplingRate = BRW.attrs['SamplingRate']
     except KeyError:
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
-        SamplingRate = Info['SignalConverter']['SampleToTimeConverter']['FrameRateHertz']
+        TimeConverter = Info['SignalConverter']['SampleToTimeConverter']
+        if 'FrameRateHertz' in TimeConverter:
+            SamplingRate = TimeConverter['FrameRateHertz']
+        else:
+            SamplingRate = TimeConverter['FrameRateHerz']
 
     StartFrame = int(SamplingRate * StartTime)
     EndFrame = int(SamplingRate *(StartTime+Duration))
@@ -166,8 +174,15 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
         Info = json.loads(BRW['ExperimentInfo'][()][0].decode('utf-8'))
         MinDigitalValue = Info['SignalConverter']['DigitalToAnalogConverter']['MinDigitalValue']
         MaxDigitalValue = Info['SignalConverter']['DigitalToAnalogConverter']['MaxDigitalValue']
-        MinAnalogValue  = Info['SignalConverter']['DigitalToAnalogConverter']['MinAnalogValueMicroVolt']
-        MaxAnalogValue  = Info['SignalConverter']['DigitalToAnalogConverter']['MaxAnalogValueMicroVolt']
+        DigitalToAnalogConverter = Info['SignalConverter']['DigitalToAnalogConverter']
+        if 'MinAnalogValueMicroVolt' in DigitalToAnalogConverter:
+            MinAnalogValue  = DigitalToAnalogConverter['MinAnalogValueMicroVolt']
+            MaxAnalogValue  = DigitalToAnalogConverter['MaxAnalogValueMicroVolt']
+        else:
+            MinAnalogValue  = DigitalToAnalogConverter['MinAnalogValueMilliVolt']
+            MaxAnalogValue  = DigitalToAnalogConverter['MaxAnalogValueMilliVolt']
+        
+
     DacFactor = (MaxAnalogValue - MinAnalogValue) / (MaxDigitalValue - MinDigitalValue)
     OffsetValue = MinAnalogValue - DacFactor * MinDigitalValue
 
