@@ -133,7 +133,6 @@ dmypy.json
 .DS_Store
 
 # Project-specific
-main/
 MANUSCRIPT.md
 DELIVERABLE.md
 *.npy
@@ -151,6 +150,7 @@ raw_data/
 processed_data/
 
 # Model checkpoints
+*.joblib
 *.pth
 *.pt
 best_generator.pth
@@ -166,3 +166,11 @@ best_discriminator.pth
 *.tmp
 *.temp
 *_backup
+
+# Local portal upload credentials
+tools/.env.portal-upload
+
+# Local task and report environments
+.tmp_spreadsheet/
+.venv_report/
+.Rhistory

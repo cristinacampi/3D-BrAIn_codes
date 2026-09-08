@@ -797,7 +797,7 @@ def HierarchicalClustering(Data, methodHC, Distance, ThresholdDendrogram, MaxCla
     return Clusters
 
 
-def Kshape_Algo(Data, nc2test, methodKM='silhouette'):
+def KshapeAlgo(Data, nc2test, methodKM='silhouette'):
     """
     Given a Dataset and the possible number of Clusters to use, the function applies the k-shape Algorithm.
 
@@ -883,7 +883,7 @@ def Kshape_Algo(Data, nc2test, methodKM='silhouette'):
 
         return BestLabels, CBest, BestCenters
 
-def Kmeans_Algo(Data, nc2test, distance, methodKM = 'silhouette'):
+def KmeansAlgo(Data, nc2test, distance, methodKM = 'silhouette'):
     """
     Given a Dataset, a metric and the possible number of Centroids to use, the function applies the k-means Algorithm.
 
@@ -1028,7 +1028,7 @@ def Silhouette(Data, Clusters, Distance, pMinkowski , wMax, g, epsilonEDR, epsil
 
     return Score
 
-def ICA_Algo(Data, ncomp = 10):
+def ICAAlgo(Data, ncomp = 10):
     """
     Apply Independent Component Analysis to reduce dimensionality and reconstruct the Data.
 
@@ -1052,7 +1052,7 @@ def ICA_Algo(Data, ncomp = 10):
     Xback = ICA.inverse_transform(Xtransformed)
     return Xtransformed, Xback
 
-def kernelPCA_Algo(Data, ncomp = 10):
+def kernelPCAAlgo(Data, ncomp = 10):
     """
     Given a Dataset and a threshold between (0 and 1) in the term of the dispersion of the Data to maintain, the function applies.
 
@@ -1081,7 +1081,7 @@ def kernelPCA_Algo(Data, ncomp = 10):
 
     return Xtransformed, Xback
 
-def PCA_Algo(Data, ThresholdVariance = 0.9):
+def PCAAlgo(Data, ThresholdVariance = 0.9):
     """
     Given a Dataset and a threshold between (0 and 1) in the term of the dispersion of the Data to maintain, the function applies.
 
@@ -1116,7 +1116,7 @@ def PCA_Algo(Data, ThresholdVariance = 0.9):
 
     return Xtransformed, Xback
 
-def Leiden_Algo(Data, ThresholdLeiden=0.95, DistanceStr = 'm', pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def LeidenAlgo(Data, ThresholdLeiden=0.95, DistanceStr = 'm', pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Leiden graph based Algorithm.
 
@@ -1175,7 +1175,7 @@ def Leiden_Algo(Data, ThresholdLeiden=0.95, DistanceStr = 'm', pMinkowski  = 2, 
 
     return Clusters, G, Partition
 
-def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', criterionHC = 'distance', methodKM = 'silhouette', MaxIterFCM=10, ThresholdVariance = 0.9, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, FuzzyParameter = 1, ThresholdDendrogram = 0.7, MaxClasses = [2], ThresholdLeiden = 0.9, SamplingRate = 1000, pMinkowski  = 2, Normalization = 'OFF', NormMode ='min_max_single', ica_ncomp=10, kpca_ncomp=10):
+def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', criterionHC = 'distance', methodKM = 'silhouette', MaxIterFCM=10, ThresholdVariance = 0.9, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, FuzzyParameter = 1, ThresholdDendrogram = 0.7, MaxClasses = [2], ThresholdLeiden = 0.9, SamplingRate = 1000, pMinkowski  = 2, Normalization = 'OFF', NormMode ='min_max_single', ICAncomp=10, KPCAncomp=10):
     """
     Given user choice, clustering Algorithm.
 
@@ -1221,9 +1221,9 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
         To applying Normalization. Choices: 'ON', 'OFF'. Defaults to 'OFF'.
     NormMode : str
         If Normalization applied, to select the modality. Choices: 'min_max_single', 'min_max_global', 'mu_std_single', 'mu_std_global'. Defaults to 'min_max_single'.
-    ica_ncomp : int
+    ICAncomp : int
         the number of components for ICA.
-    kpca_ncomp : int
+    KPCAncomp : int
         the number of components for kernelPCA.
     """
 
@@ -1282,33 +1282,33 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             NClasses = len(Clusters)
 
         elif Algo == "KM":
-            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            Clusters, NClasses, Centers = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
 
 
         elif Algo == "FCM":
-            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            ClustersKM, NClassesKM, CentersKM = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
             Clusters, Centers, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
             NClasses = len(Clusters)
 
         elif Algo == "KShape":
-            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
+            Clusters, NClasses, Centers = KshapeAlgo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
         elif Algo == "PCA&KShape":
-            Data, DataPostPCA = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
+            Data, DataPostPCA = PCAAlgo(Data=Data, ThresholdVariance=ThresholdVariance)
+            Clusters, NClasses, Centers = KshapeAlgo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
         elif Algo == "ICA&KShape":
-            Data, DataPostICA = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
+            Data, DataPostICA = ICAAlgo(Data=Data, ncomp = ICAncomp)
+            Clusters, NClasses, Centers = KshapeAlgo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
         elif Algo == "KernelPCA&KShape":
-            Data, DataPostPCA = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
-            Clusters, NClasses, Centers = Kshape_Algo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
+            Data, DataPostPCA = kernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
+            Clusters, NClasses, Centers = KshapeAlgo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
 
 
         elif Algo=="Leiden":
-            ClustersL = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            ClustersL = LeidenAlgo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
             NClasses = len(ClustersL)
             Clusters = []
             for I in range(NClasses):
@@ -1318,7 +1318,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
 
 
         elif Algo=="PCA&HC":
-            Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
+            Data, DataPostPCA  = PCAAlgo(Data=Data, ThresholdVariance=ThresholdVariance)
             ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram)
             ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=Nc2test, criterion=criterionHC,
                                                  DistanceStr=DistanceStr,
@@ -1332,22 +1332,22 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             NClasses = len(Clusters)
 
         elif Algo == "PCA&KM":
-            Data, DataPostPCA = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            Data, DataPostPCA = PCAAlgo(Data=Data, ThresholdVariance=ThresholdVariance)
+            Clusters, NClasses, Centers = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
 
 
 
         elif Algo == "PCA&FCM":
-            Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            Data, DataPostPCA  = PCAAlgo(Data=Data, ThresholdVariance=ThresholdVariance)
+            ClustersKM, NClassesKM, CentersKM = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
             MaxIter = 5
             Clusters, CentersFCM, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
             NClasses = len(Clusters)
 
 
         elif Algo =="PCA&Leiden":
-            Data, DataPostPCA  = PCA_Algo(Data=Data, ThresholdVariance=ThresholdVariance)
-            ClustersL = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            Data, DataPostPCA  = PCAAlgo(Data=Data, ThresholdVariance=ThresholdVariance)
+            ClustersL = LeidenAlgo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
             NClasses = len(ClustersL)
             Clusters = []
             for I in range(NClasses):
@@ -1356,7 +1356,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             NClasses = len(Clusters)
 
         elif Algo=="ICA&HC":
-            Data, DataPostICA = ICA_Algo(Data=Data, ncomp = ica_ncomp)
+            Data, DataPostICA = ICAAlgo(Data=Data, ncomp = ICAncomp)
             ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram)
             ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=Nc2test, criterion=criterionHC,
                                                  DistanceStr = DistanceStr,
@@ -1370,21 +1370,21 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
 
 
         elif Algo == "ICA&KM":
-            Data, DataPostICA  = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            Data, DataPostICA  = ICAAlgo(Data=Data, ncomp = ICAncomp)
+            Clusters, NClasses, Centers = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
 
 
         elif Algo == "ICA&FCM":
-            Data, DataPostICA   = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            Data, DataPostICA   = ICAAlgo(Data=Data, ncomp = ICAncomp)
+            ClustersKM, NClassesKM, CentersKM = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
             MaxIter = 5
             Clusters, CentersFCM, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
             NClasses = len(Clusters)
 
 
         elif Algo =="ICA&Leiden":
-            Data, DataPostICA   = ICA_Algo(Data=Data, ncomp = ica_ncomp)
-            ClustersL = Leiden_Algo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
+            Data, DataPostICA   = ICAAlgo(Data=Data, ncomp = ICAncomp)
+            ClustersL = LeidenAlgo(Data=Data.T, ThresholdLeiden=ThresholdLeiden, DistanceStr=DistanceStr, pMinkowski  = pMinkowski , wMax = wMax, g = g, epsilonEDR = epsilonEDR, epsilonLCSS = epsilonLCSS, SamplingRate=SamplingRate)[0]
             NClasses = len(ClustersL)
             Clusters = []
             for I in range(NClasses):
@@ -1393,7 +1393,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             NClasses = len(Clusters)
 
         elif Algo=="kernelPCA&HC":
-            Data, DataPostPCA  = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
+            Data, DataPostPCA  = kernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
             ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram)
             ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=Nc2test, criterion=criterionHC,
                                                  DistanceStr = DistanceStr,
@@ -1407,14 +1407,14 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
 
 
         elif Algo == "kernelPCA&KM":
-            Data, DataPostPCA = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
-            Clusters, NClasses, Centers = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            Data, DataPostPCA = kernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
+            Clusters, NClasses, Centers = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
 
 
 
         elif Algo == "kernelPCA&FCM":
-            Data, DataPostPCA  = kernelPCA_Algo(Data=Data, ncomp = kpca_ncomp)
-            ClustersKM, NClassesKM, CentersKM = Kmeans_Algo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
+            Data, DataPostPCA  = kernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
+            ClustersKM, NClassesKM, CentersKM = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
             MaxIter = 5
             Clusters, CentersFCM, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
             NClasses = len(Clusters)

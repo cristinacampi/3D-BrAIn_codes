@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from sklearn.linear_model import RidgeClassifierCV
+from sklearn.linear_model import RidgeClassifierCV as SklearnRidgeClassifierCV
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -98,7 +98,7 @@ def _as_time_series_panel(X):
     raise ValueError("Time-series input must have shape (samples, timepoints) or (samples, channels, timepoints).")
 
 
-def tss_score(conf_matrix):
+def TSSScore(conf_matrix):
     """Compute the True Skill Statistic from a binary confusion matrix.
 
     Parameters
@@ -121,7 +121,7 @@ def tss_score(conf_matrix):
     return Sensitivity - FalsePositiveRate
 
 
-def load_feature_pickles(file_loc, feature_column="Features"):
+def LoadFeaturePickles(file_loc, feature_column="Features"):
     """Load extracted-feature pickle files from a directory.
 
     Each pickle is expected to contain a pandas DataFrame with a feature column
@@ -165,7 +165,7 @@ def load_feature_pickles(file_loc, feature_column="Features"):
     return pd.concat(Rows, ignore_index=True)
 
 
-def build_classification_dataset(
+def BuildClassificationDataset(
     data,
     label,
     class_tags,
@@ -179,7 +179,7 @@ def build_classification_dataset(
     Parameters
     ----------
     data : pandas.DataFrame
-        feature table, for example from :func:`load_feature_pickles`.
+        feature table, for example from :func:`LoadFeaturePickles`.
     label : str
         column used as the classification target.
     class_tags : list[list[str]] or dict
@@ -244,7 +244,7 @@ def build_classification_dataset(
     return np.asarray(Features), np.asarray(Labels), pd.DataFrame(Metadata)
 
 
-def extract_minirocket_features(
+def ExtractMiniRocketFeatures(
     X_train,
     X_test=None,
     num_kernels=10000,
@@ -347,7 +347,7 @@ def extract_minirocket_features(
     return Result
 
 
-def minirocket_classifier_cv(
+def MiniRocketClassifierCV(
     X,
     y,
     n_splits=25,
@@ -428,7 +428,7 @@ def minirocket_classifier_cv(
             random_state=SplitSeed,
         )
 
-        RocketResult = extract_minirocket_features(
+        RocketResult = ExtractMiniRocketFeatures(
             XTrain,
             XTest,
             num_kernels=num_kernels,
@@ -444,7 +444,7 @@ def minirocket_classifier_cv(
             XTrainFeatures = Scaler.fit_transform(XTrainFeatures)
             XTestFeatures = Scaler.transform(XTestFeatures)
 
-        Clf = RidgeClassifierCV(alphas=alphas)
+        Clf = SklearnRidgeClassifierCV(alphas=alphas)
         Clf.fit(XTrainFeatures, YTrain)
 
         TrainPred = Clf.predict(XTrainFeatures)
@@ -464,8 +464,8 @@ def minirocket_classifier_cv(
             "Rocket_Features": XTrainFeatures.shape[1],
         }
         if len(Classes) == 2:
-            Record["Train_TSS"] = tss_score(TrainConf)
-            Record["Test_TSS"] = tss_score(TestConf)
+            Record["Train_TSS"] = TSSScore(TrainConf)
+            Record["Test_TSS"] = TSSScore(TestConf)
 
         Records.append(Record)
         TrainPredictions.append(TrainPred)
@@ -490,7 +490,7 @@ def minirocket_classifier_cv(
     }
 
 
-def ridge_classifier_cv(
+def RidgeClassifierCV(
     X,
     y,
     n_splits=25,
@@ -554,7 +554,7 @@ def ridge_classifier_cv(
         XTrain = Scaler.fit_transform(XTrain)
         XTest = Scaler.transform(XTest)
 
-        Clf = RidgeClassifierCV(alphas=alphas)
+        Clf = SklearnRidgeClassifierCV(alphas=alphas)
         Clf.fit(XTrain, YTrain)
 
         TrainPred = Clf.predict(XTrain)
@@ -574,8 +574,8 @@ def ridge_classifier_cv(
         }
 
         if len(Classes) == 2:
-            Record["Train_TSS"] = tss_score(TrainConf)
-            Record["Test_TSS"] = tss_score(TestConf)
+            Record["Train_TSS"] = TSSScore(TrainConf)
+            Record["Test_TSS"] = TSSScore(TestConf)
 
         Records.append(Record)
         TrainPredictions.append(TrainPred)
@@ -598,13 +598,13 @@ def ridge_classifier_cv(
     }
 
 
-def plot_classification_results(results, save_loc=None, save_name="classification", show=False):
+def PlotClassificationResults(results, save_loc=None, save_name="classification", show=False):
     """Plot performance boxplots and cumulative confusion matrix.
 
     Parameters
     ----------
     results : dict
-        Output of :func:`ridge_classifier_cv` or :func:`minirocket_classifier_cv`.
+        Output of :func:`RidgeClassifierCV` or :func:`MiniRocketClassifierCV`.
     save_loc : str or pathlib.Path, optional
         directory where plots are saved.
     save_name : str
@@ -670,7 +670,7 @@ def plot_classification_results(results, save_loc=None, save_name="classificatio
     plt.close()
 
 
-def classifier(
+def Classifier(
     file_loc,
     pre_label,
     label,
@@ -743,8 +743,8 @@ def classifier(
     dict
         dataset metadata, metrics, confusion matrix, models, and scalers.
     """
-    Data = load_feature_pickles(file_loc, feature_column=feature_column)
-    X, Y, Metadata = build_classification_dataset(
+    Data = LoadFeaturePickles(file_loc, feature_column=feature_column)
+    X, Y, Metadata = BuildClassificationDataset(
         Data,
         label=label,
         class_tags=tag,
@@ -754,7 +754,7 @@ def classifier(
         flatten=not use_minirocket,
     )
     if use_minirocket:
-        Results = minirocket_classifier_cv(
+        Results = MiniRocketClassifierCV(
             X,
             Y,
             n_splits=n_splits,
@@ -766,7 +766,7 @@ def classifier(
             scale_features=scale_rocket_features,
         )
     else:
-        Results = ridge_classifier_cv(
+        Results = RidgeClassifierCV(
             X,
             Y,
             n_splits=n_splits,
@@ -776,7 +776,7 @@ def classifier(
     Results["metadata"] = Metadata
     Results["X_shape"] = X.shape
 
-    plot_classification_results(Results, save_loc=save_loc, save_name=save_name, show=show)
+    PlotClassificationResults(Results, save_loc=save_loc, save_name=save_name, show=show)
 
     if save_results:
         save_loc = _as_path(save_loc)
@@ -789,3 +789,14 @@ def classifier(
         ResultsDf.to_pickle(save_loc / f"{save_name}_results.pkl")
 
     return Results
+
+
+# Backward-compatible aliases for releases that exposed snake_case names.
+tss_score = TSSScore
+load_feature_pickles = LoadFeaturePickles
+build_classification_dataset = BuildClassificationDataset
+extract_minirocket_features = ExtractMiniRocketFeatures
+minirocket_classifier_cv = MiniRocketClassifierCV
+ridge_classifier_cv = RidgeClassifierCV
+plot_classification_results = PlotClassificationResults
+classifier = Classifier

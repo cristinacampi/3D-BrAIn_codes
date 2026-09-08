@@ -14,6 +14,56 @@
 - `brain_3d.Fcm`: fuzzy C-means clustering.
 - `brain_3d.MergingTree`: community merging tree construction and visualization.
 - `brain_3d.GanFunctions` and `brain_3d.VaeganFunctions`: PyTorch model components and training utilities for signal synthesis.
+- `brain_3d.Mamba`: Mamba-style sequence classification of multichannel MEA windows, with group-disjoint evaluation.
+
+## Mamba classification
+
+MEA windows are represented as `(samples, channels, timepoints)`. Use a group ID
+for each window so data from the same recording, well, organoid, or subject never
+occur in both training and test sets:
+
+```python
+from brain_3d.Mamba import MambaClassifierCV
+
+results = MambaClassifierCV(
+    X, labels,
+    groups=recording_ids,
+    n_splits=5,
+    epochs=30,
+    backend="reference",  # portable PyTorch implementation
+)
+print(results["metrics"])
+```
+
+A ready-to-run comparison against Dummy, Ridge, balanced Logistic Regression,
+linear/RBF SVM, Random Forest, and Extra Trees accepts an NPZ file with
+arrays `X`, `y`, and optionally `groups`:
+
+```bash
+python main/main_run_mamba_algorithm_comparison.py dataset.npz results/mamba --splits 5 --epochs 30
+```
+
+All models use exactly the same folds. The command writes per-fold metrics,
+ranked summaries, predictions, per-model classification reports, confusion
+matrices, and comparison plots. Metrics include accuracy, balanced accuracy,
+F1, precision, recall, specificity, MCC, ROC-AUC, TSS, and execution times where
+applicable.
+
+For long sequences on a compatible Linux/NVIDIA system, install the official
+`mamba-ssm` package separately and select `backend="official"`. The reference
+backend implements the selective state-space recurrence in standard PyTorch and
+is intended for portability, testing, and smaller datasets rather than maximum
+throughput.
+
+The existing Mark recording-classification main now also evaluates
+`waveform_sequence_mamba`. It uses the same plausible-negative waveforms,
+recordings, labels, biological-unit folds, and output tables as the classical
+models. Configure the experiment, target, reprocessing, and Mamba parameters in
+the parameter block at the beginning of the main, then run:
+
+```bash
+python main/main_run_negative_spike_recording_classification.py
+```
 
 ## Installation
 
