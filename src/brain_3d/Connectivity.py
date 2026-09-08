@@ -426,6 +426,197 @@ def NodeStrength(Matrix, Channels, Absolute=True):
     return pd.DataFrame({"channel": Channels, "strength": np.sum(Values, axis=1)})
 
 
+def PlotConnectivityMatrix(
+    Matrix,
+    SavePath=None,
+    Title="Connectivity matrix",
+    Cmap="coolwarm",
+    Vmin=-1,
+    Vmax=1,
+):
+    """Plot a channel-by-channel connectivity matrix with a fixed scale."""
+    import matplotlib.pyplot as plt
+
+    Values = np.asarray(Matrix, dtype=float)
+    if Values.ndim != 2 or Values.shape[0] != Values.shape[1]:
+        raise ValueError("Matrix must be a square two-dimensional array.")
+
+    Fig, Ax = plt.subplots(figsize=(6.4, 5.2), constrained_layout=True)
+    Image = Ax.imshow(
+        Values,
+        cmap=Cmap,
+        vmin=Vmin,
+        vmax=Vmax,
+        interpolation="nearest",
+        aspect="equal",
+    )
+    Ax.set_title(Title, fontsize=12, color="#11163b", pad=12)
+    Ax.set_xlabel("Active channels", fontsize=9)
+    Ax.set_ylabel("Active channels", fontsize=9)
+    Ax.set_xticks([])
+    Ax.set_yticks([])
+    Colorbar = Fig.colorbar(Image, ax=Ax, fraction=0.046, pad=0.04)
+    Colorbar.set_label("Connectivity coefficient", fontsize=8)
+    if SavePath is not None:
+        Fig.savefig(SavePath, dpi=125, facecolor="white")
+        plt.close(Fig)
+    return Fig, Ax
+
+
+def ChannelToGrid(Channel, GridShape=(64, 64)):
+    """Map a linear MEA channel id to ``(row, column)`` grid coordinates."""
+    Rows, Cols = GridShape
+    Channel = int(Channel)
+    if Channel < 0 or Channel >= Rows * Cols:
+        raise ValueError(f"Channel {Channel} is outside grid shape {GridShape}.")
+    return Channel // Cols, Channel % Cols
+
+
+def ChannelValuesToGrid(ChannelValues, ValueColumn="strength", GridShape=(64, 64)):
+    """Convert a per-channel table into a 2D MEA grid."""
+    Grid = np.full(GridShape, np.nan, dtype=float)
+    for Row in ChannelValues.itertuples(index=False):
+        GridRow, GridCol = ChannelToGrid(getattr(Row, "channel"), GridShape=GridShape)
+        Grid[GridRow, GridCol] = getattr(Row, ValueColumn)
+    return Grid
+
+
+def PlotNodeStrengthGrid(
+    ChannelValues,
+    SavePath=None,
+    ValueColumn="strength",
+    GridShape=(64, 64),
+    Title="Node strength",
+    Cmap="viridis",
+):
+    """Plot a 64 x 64 heatmap of node-level connectivity strength."""
+    import matplotlib.pyplot as plt
+
+    Grid = ChannelValuesToGrid(ChannelValues, ValueColumn=ValueColumn, GridShape=GridShape)
+    Fig, Ax = plt.subplots(figsize=(7.2, 6.4))
+    Image = Ax.imshow(Grid, cmap=Cmap, origin="upper", interpolation="nearest")
+    Ax.set_title(Title)
+    Ax.set_xlabel("column")
+    Ax.set_ylabel("row")
+    Ax.set_xlim(-0.5, GridShape[1] - 0.5)
+    Ax.set_ylim(GridShape[0] - 0.5, -0.5)
+    Fig.colorbar(Image, ax=Ax, fraction=0.046, pad=0.04, label=ValueColumn.replace("_", " "))
+    Fig.tight_layout()
+    if SavePath is not None:
+        Fig.savefig(SavePath, dpi=220, bbox_inches="tight", facecolor="white")
+        plt.close(Fig)
+    return Fig, Ax
+
+
+def SelectStrongEdges(Edges, Threshold=None, TopPercentile=None, TopN=None, Absolute=True):
+    """Select strongest edges from an edge table by threshold, percentile, or rank."""
+    if Edges.empty:
+        return Edges.copy()
+
+    Selected = Edges.copy()
+    Selected["score"] = Selected["weight"].abs() if Absolute else Selected["weight"]
+    Selected = Selected[np.isfinite(Selected["score"])]
+
+    if Threshold is not None:
+        Selected = Selected[Selected["score"] >= Threshold]
+    if TopPercentile is not None and not Selected.empty:
+        Cutoff = np.nanpercentile(Selected["score"], TopPercentile)
+        Selected = Selected[Selected["score"] >= Cutoff]
+    if TopN is not None and TopN > 0:
+        Selected = Selected.sort_values("score", ascending=False).head(TopN)
+
+    return Selected.sort_values("score", ascending=False).reset_index(drop=True)
+
+
+def PlotNetworkEdgeGrid(
+    Edges,
+    SavePath=None,
+    ChannelValues=None,
+    GridShape=(64, 64),
+    Threshold=None,
+    TopPercentile=95,
+    TopN=120,
+    Absolute=True,
+    Title="Strongest network edges",
+    Cmap="viridis",
+):
+    """Draw selected connectivity edges on the physical MEA grid."""
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import LineCollection
+
+    Selected = SelectStrongEdges(
+        Edges,
+        Threshold=Threshold,
+        TopPercentile=TopPercentile,
+        TopN=TopN,
+        Absolute=Absolute,
+    )
+
+    if ChannelValues is not None and not ChannelValues.empty:
+        Nodes = ChannelValues.copy()
+    elif not Edges.empty:
+        Channels = pd.unique(pd.concat([Edges["source"], Edges["target"]], ignore_index=True))
+        Nodes = pd.DataFrame({"channel": Channels, "strength": np.ones(len(Channels))})
+    else:
+        Nodes = pd.DataFrame({"channel": [], "strength": []})
+
+    NodeRows = []
+    for Row in Nodes.itertuples(index=False):
+        GridRow, GridCol = ChannelToGrid(getattr(Row, "channel"), GridShape=GridShape)
+        NodeRows.append(
+            {
+                "channel": getattr(Row, "channel"),
+                "row": GridRow,
+                "col": GridCol,
+                "strength": getattr(Row, "strength", 1.0),
+            }
+        )
+    NodePositions = pd.DataFrame(NodeRows)
+
+    Segments = []
+    Scores = []
+    for Row in Selected.itertuples(index=False):
+        SourceRow, SourceCol = ChannelToGrid(getattr(Row, "source"), GridShape=GridShape)
+        TargetRow, TargetCol = ChannelToGrid(getattr(Row, "target"), GridShape=GridShape)
+        Segments.append([(SourceCol, SourceRow), (TargetCol, TargetRow)])
+        Scores.append(getattr(Row, "score"))
+
+    Fig, Ax = plt.subplots(figsize=(7.2, 6.4))
+    if not NodePositions.empty:
+        Scatter = Ax.scatter(
+            NodePositions["col"],
+            NodePositions["row"],
+            c=NodePositions["strength"],
+            cmap=Cmap,
+            s=18,
+            alpha=0.9,
+            linewidths=0,
+        )
+        Fig.colorbar(Scatter, ax=Ax, fraction=0.046, pad=0.04, label="node strength")
+
+    if Segments:
+        Scores = np.asarray(Scores, dtype=float)
+        if np.nanmax(Scores) > np.nanmin(Scores):
+            LineWidths = 0.4 + 2.2 * (Scores - np.nanmin(Scores)) / (np.nanmax(Scores) - np.nanmin(Scores))
+        else:
+            LineWidths = np.full_like(Scores, 1.4)
+        Lines = LineCollection(Segments, linewidths=LineWidths, colors="#d62728", alpha=0.36)
+        Ax.add_collection(Lines)
+
+    Ax.set_title(f"{Title} ({len(Selected)} edges)")
+    Ax.set_xlabel("column")
+    Ax.set_ylabel("row")
+    Ax.set_xlim(-0.5, GridShape[1] - 0.5)
+    Ax.set_ylim(GridShape[0] - 0.5, -0.5)
+    Ax.set_aspect("equal")
+    Ax.grid(True, color="#d0d0d0", linewidth=0.25, alpha=0.35)
+    Fig.tight_layout()
+    if SavePath is not None:
+        Fig.savefig(SavePath, dpi=220, bbox_inches="tight", facecolor="white")
+        plt.close(Fig)
+    return Fig, Ax, Selected
+
+
 def AnalyzeSpikeDir(
     SpikeDir,
     SamplingRate,
@@ -607,4 +798,10 @@ cross_correlogram_peak_matrix = CrossCorrelogramPeakMatrix
 threshold_matrix = ThresholdMatrix
 matrix_to_edges = MatrixToEdges
 node_strength = NodeStrength
+plot_connectivity_matrix = PlotConnectivityMatrix
+channel_to_grid = ChannelToGrid
+channel_values_to_grid = ChannelValuesToGrid
+plot_node_strength_grid = PlotNodeStrengthGrid
+select_strong_edges = SelectStrongEdges
+plot_network_edge_grid = PlotNetworkEdgeGrid
 analyze_spike_dir = AnalyzeSpikeDir
