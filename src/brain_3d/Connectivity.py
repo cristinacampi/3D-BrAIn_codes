@@ -496,8 +496,8 @@ def PlotNodeStrengthGrid(
     Fig, Ax = plt.subplots(figsize=(7.2, 6.4))
     Image = Ax.imshow(Grid, cmap=Cmap, origin="upper", interpolation="nearest")
     Ax.set_title(Title)
-    Ax.set_xlabel("column")
-    Ax.set_ylabel("row")
+    # The MEA coordinates are already conveyed by the grid and tick values;
+    # keep exported catalogue figures free of redundant axis captions.
     Ax.set_xlim(-0.5, GridShape[1] - 0.5)
     Ax.set_ylim(GridShape[0] - 0.5, -0.5)
     Fig.colorbar(Image, ax=Ax, fraction=0.046, pad=0.04, label=ValueColumn.replace("_", " "))
@@ -604,8 +604,8 @@ def PlotNetworkEdgeGrid(
         Ax.add_collection(Lines)
 
     Ax.set_title(f"{Title} ({len(Selected)} edges)")
-    Ax.set_xlabel("column")
-    Ax.set_ylabel("row")
+    # The MEA coordinates are already conveyed by the grid and tick values;
+    # keep exported catalogue figures free of redundant axis captions.
     Ax.set_xlim(-0.5, GridShape[1] - 0.5)
     Ax.set_ylim(GridShape[0] - 0.5, -0.5)
     Ax.set_aspect("equal")
