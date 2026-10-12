@@ -1,7 +1,0 @@
-Stratification module
-=====================
-
-.. automodule:: brain_3d.Stratification
-   :members:
-   :show-inheritance:
-   :undoc-members:
