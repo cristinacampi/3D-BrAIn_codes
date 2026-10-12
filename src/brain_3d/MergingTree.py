@@ -22,7 +22,7 @@ class Node:
     ID : str
         Unique node identifier.
     """
-    def __init__(self, left=None, Right=None, Data=None):
+    def __init__(self, Left=None, Right=None, Data=None):
         """Initialize a tree node.
 
         Parameters
@@ -34,7 +34,7 @@ class Node:
         Data : str, optional
             node label or Data. Defaults to None.
         """
-        self.Left= left
+        self.Left = Left
         self.Right = Right
         self.Data = Data
         self.ID = str(uuid.uuid4())

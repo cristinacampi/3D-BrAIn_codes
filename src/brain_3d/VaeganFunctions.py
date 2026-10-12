@@ -44,6 +44,7 @@ class VAEEncoder(nn.Module):
         Sampled latent vector, latent mean, and latent log-variance.
     """
     def __init__(self, input_dim, feature_dim, emb_dim, latent_dim, num_heads, num_layers=6, dropout_rate=0.2):
+        """Initialize the VAEEncoder instance."""
         super(VAEEncoder, self).__init__()
         self.input_dim = input_dim
 
@@ -166,6 +167,7 @@ class LinearConvDecoder(nn.Module):
         Reconstructed sequence tensor of shape [batch_size, seq_len, 1].
     """
     def __init__(self, output_dim, latent_dim, emb_dim, num_heads=8, num_layers=1, dropout_rate=0.1):
+        """Initialize the LinearConvDecoder instance."""
         super(LinearConvDecoder, self).__init__()
 
         # Positional Encoding
@@ -273,6 +275,7 @@ class PositionalEncoding(nn.Module):
         Input tensor with positional encodings added.
     """
     def __init__(self, seq_len, emb_dim):
+        """Initialize the PositionalEncoding instance."""
         super(PositionalEncoding, self).__init__()
         self.seq_len = seq_len
 
@@ -335,6 +338,7 @@ class TransformerEncoderBlock(nn.Module):
         Output tensor with the same shape as input [seq_len, batch_size, emb_dim].
     """
     def __init__(self, emb_dim=256, num_heads=4, dropout_rate=0.1):
+        """Initialize the TransformerEncoderBlock instance."""
         super(TransformerEncoderBlock, self).__init__()
 
         # Pre-attention normalization
@@ -405,6 +409,7 @@ class TransformerDecoderBlock(nn.Module):
         Output tensor with the same shape as input [seq_len, batch_size, emb_dim].
     """
     def __init__(self, emb_dim, num_heads, dropout_rate=0.1):
+        """Initialize the TransformerDecoderBlock instance."""
         super(TransformerDecoderBlock, self).__init__()
 
         # Attention components
@@ -447,12 +452,12 @@ class TransformerDecoderBlock(nn.Module):
         return self.norm2(x)
 
 
-class VAE_GANTrainer:
+class VAEGANTrainer:
     """Trainer for VAE-GAN signal reconstruction and adversarial refinement.
 
     The class intentionally matches the historical ``main_vaegan.py`` API:
-    ``pre_train``, ``train``, ``test``, ``visualize_data``, and
-    ``_plot_mean_std_data``.
+    ``PreTrain``, ``train``, ``test``, ``VisualizeData``, and
+    ``PlotMeanStdData``.
     """
 
     def __init__(
@@ -473,6 +478,7 @@ class VAE_GANTrainer:
         lambda_rec,
         beta,
     ):
+        """Initialize the VAEGANTrainer instance."""
         self.feature_dim = feature_dim
         self.input_dim = input_dim
         self.latent_dim = latent_dim
@@ -513,29 +519,35 @@ class VAE_GANTrainer:
         self.dis_losses = []
         self.test_losses = []
 
-    def _move_batch(self, Batch):
+    def MoveBatch(self, Batch):
+        """Move a batch to the configured device and floating-point type."""
         return Batch.float().to(self.device)
 
-    def _encode_decode(self, Batch):
+    def EncodeDecode(self, Batch):
+        """Encode a batch, sample its latent state, and reconstruct it."""
         Z, Mu, Logvar = self.encoder(Batch)
         Reconstructed = self.decoder(Z)
         return Reconstructed, Mu, Logvar
 
-    def _kl_loss(self, Mu, Logvar):
+    def KlLoss(self, Mu, Logvar):
+        """Calculate the latent Kullback-Leibler divergence penalty."""
         return -0.5 * torch.mean(1 + Logvar - Mu.pow(2) - Logvar.exp())
 
-    def _vae_loss(self, Batch):
-        Reconstructed, Mu, Logvar = self._encode_decode(Batch)
+    def VaeLoss(self, Batch):
+        """Calculate reconstruction and KL losses for one VAE batch."""
+        Reconstructed, Mu, Logvar = self.EncodeDecode(Batch)
         RecLoss = self.reconstruction_loss(Reconstructed, Batch)
-        KlLoss = self._kl_loss(Mu, Logvar)
+        KlLoss = self.KlLoss(Mu, Logvar)
         return self.lambda_rec * RecLoss + self.beta * KlLoss, RecLoss, KlLoss, Reconstructed
 
-    def _to_discriminator_shape(self, Batch):
+    def ToDiscriminatorShape(self, Batch):
+        """Rearrange a batch into the shape expected by the discriminator."""
         return Batch.permute(1, 0, 2)
 
-    def _gradient_penalty(self, RealData, FakeData):
-        RealDisc = self._to_discriminator_shape(RealData)
-        FakeDisc = self._to_discriminator_shape(FakeData)
+    def GradientPenalty(self, RealData, FakeData):
+        """Calculate the WGAN gradient penalty between real and generated data."""
+        RealDisc = self.ToDiscriminatorShape(RealData)
+        FakeDisc = self.ToDiscriminatorShape(FakeData)
         Epsilon = torch.rand(RealDisc.size(), device=self.device)
         Interpolated = Epsilon * RealDisc + (1 - Epsilon) * FakeDisc
         Interpolated.requires_grad_(True)
@@ -552,7 +564,7 @@ class VAE_GANTrainer:
         Gradients = Gradients.reshape(Gradients.size(1), -1)
         return ((Gradients.norm(2, dim=1) - 1) ** 2).mean()
 
-    def pre_train(self, data_loader, epochs, patience=10):
+    def PreTrain(self, data_loader, epochs, patience=10):
         """Pre-train encoder and decoder with reconstruction and KL losses."""
         BestLoss = float("inf")
         NoImprovement = 0
@@ -563,11 +575,11 @@ class VAE_GANTrainer:
             EpochLosses = []
 
             for Batch in data_loader:
-                Batch = self._move_batch(Batch)
+                Batch = self.MoveBatch(Batch)
                 self.optimizer_E.zero_grad()
                 self.optimizer_Dec.zero_grad()
 
-                Loss, RecLoss, KlLoss, _ = self._vae_loss(Batch)
+                Loss, RecLoss, KlLoss, _ = self.VaeLoss(Batch)
                 Loss.backward()
                 self.optimizer_E.step()
                 self.optimizer_Dec.step()
@@ -586,24 +598,26 @@ class VAE_GANTrainer:
                 print("Early stopping pre-training")
                 break
 
-    def _train_generator_step(self, Batch):
+    def TrainGeneratorStep(self, Batch):
+        """Update the encoder and decoder for one adversarial training step."""
         self.optimizer_E.zero_grad()
         self.optimizer_Dec.zero_grad()
 
-        VaeLoss, RecLoss, KlLoss, Reconstructed = self._vae_loss(Batch)
-        FakeValidity = self.discriminator(self._to_discriminator_shape(Reconstructed))
+        VaeLoss, RecLoss, KlLoss, Reconstructed = self.VaeLoss(Batch)
+        FakeValidity = self.discriminator(self.ToDiscriminatorShape(Reconstructed))
         GenLoss = VaeLoss - torch.mean(FakeValidity)
         GenLoss.backward()
         self.optimizer_E.step()
         self.optimizer_Dec.step()
         return GenLoss.item(), Reconstructed.detach()
 
-    def _train_discriminator_step(self, Batch, Reconstructed):
+    def TrainDiscriminatorStep(self, Batch, Reconstructed):
+        """Update the discriminator using real and reconstructed samples."""
         self.optimizer_D.zero_grad()
 
-        RealValidity = self.discriminator(self._to_discriminator_shape(Batch))
-        FakeValidity = self.discriminator(self._to_discriminator_shape(Reconstructed))
-        GradientPenalty = self._gradient_penalty(Batch, Reconstructed)
+        RealValidity = self.discriminator(self.ToDiscriminatorShape(Batch))
+        FakeValidity = self.discriminator(self.ToDiscriminatorShape(Reconstructed))
+        GradientPenalty = self.GradientPenalty(Batch, Reconstructed)
         DiscLoss = -torch.mean(RealValidity) + torch.mean(FakeValidity) + self.gp_lambda * GradientPenalty
         DiscLoss.backward()
         self.optimizer_D.step()
@@ -622,15 +636,15 @@ class VAE_GANTrainer:
             DiscLosses = []
 
             for Batch in train_loader:
-                Batch = self._move_batch(Batch)
+                Batch = self.MoveBatch(Batch)
 
                 Reconstructed = None
                 for _ in range(self.gen_steps):
-                    GenLoss, Reconstructed = self._train_generator_step(Batch)
+                    GenLoss, Reconstructed = self.TrainGeneratorStep(Batch)
                     GenLosses.append(GenLoss)
 
                 for _ in range(self.disc_steps):
-                    DiscLoss = self._train_discriminator_step(Batch, Reconstructed)
+                    DiscLoss = self.TrainDiscriminatorStep(Batch, Reconstructed)
                     DiscLosses.append(DiscLoss)
 
             AvgGenLoss = float(np.mean(GenLosses))
@@ -642,7 +656,7 @@ class VAE_GANTrainer:
                 f"Gen Loss: {AvgGenLoss:.4f}, Disc Loss: {AvgDiscLoss:.4f}"
             )
 
-            MonitorLoss = self._validation_loss(validation_loader) if validation_loader is not None else AvgGenLoss
+            MonitorLoss = self.ValidationLoss(validation_loader) if validation_loader is not None else AvgGenLoss
             if MonitorLoss < BestLoss:
                 BestLoss = MonitorLoss
                 NoImprovement = 0
@@ -652,25 +666,26 @@ class VAE_GANTrainer:
                 print("Early stopping adversarial training")
                 break
 
-    def _validation_loss(self, validation_loader):
+    def ValidationLoss(self, validation_loader):
+        """Calculate mean reconstruction loss over a validation loader."""
         self.encoder.eval()
         self.decoder.eval()
         Losses = []
         with torch.no_grad():
             for Batch in validation_loader:
-                Batch = self._move_batch(Batch)
-                Loss, _, _, _ = self._vae_loss(Batch)
+                Batch = self.MoveBatch(Batch)
+                Loss, _, _, _ = self.VaeLoss(Batch)
                 Losses.append(Loss.item())
         return float(np.mean(Losses)) if Losses else float("inf")
 
     def test(self, test_loader):
         """Evaluate reconstruction loss on a test loader."""
-        TestLoss = self._validation_loss(test_loader)
+        TestLoss = self.ValidationLoss(test_loader)
         self.test_losses.append(TestLoss)
         print(f"Test reconstruction loss: {TestLoss:.4f}")
         return TestLoss
 
-    def visualize_data(self, data_loader, mode="test"):
+    def VisualizeData(self, data_loader, mode="test"):
         """Return reconstructed samples for all batches in ``data_loader``."""
         self.encoder.eval()
         self.decoder.eval()
@@ -678,15 +693,15 @@ class VAE_GANTrainer:
 
         with torch.no_grad():
             for Batch in data_loader:
-                Batch = self._move_batch(Batch)
-                Reconstructed, _, _ = self._encode_decode(Batch)
+                Batch = self.MoveBatch(Batch)
+                Reconstructed, _, _ = self.EncodeDecode(Batch)
                 ReconstructedBatches.append(Reconstructed.cpu())
 
         ReconstructedData = torch.cat(ReconstructedBatches, dim=0)
         print(f"{mode} reconstructed data shape: {tuple(ReconstructedData.shape)}")
         return ReconstructedData
 
-    def _plot_mean_std_data(self, RealData, GeneratedData, Filename):
+    def PlotMeanStdData(self, RealData, GeneratedData, Filename):
         """Plot mean and standard deviation for real and reconstructed data."""
         RealData = RealData.detach().cpu().squeeze()
         GeneratedData = GeneratedData.detach().cpu().squeeze()
@@ -715,3 +730,9 @@ class VAE_GANTrainer:
         plt.savefig(Filename)
         plt.close()
         print(f"\nPlot saved in {Filename}")
+
+
+# Backward-compatible class and method aliases.
+VAE_GANTrainer = VAEGANTrainer
+VAEGANTrainer.pre_train = VAEGANTrainer.PreTrain
+VAEGANTrainer.visualize_data = VAEGANTrainer.VisualizeData

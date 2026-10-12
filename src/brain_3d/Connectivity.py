@@ -27,60 +27,11 @@ import time
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+from matplotlib.lines import Line2D
 
-
-def _as_path(PathValue):
-    """Return a normalized ``Path`` while accepting strings and Path objects."""
-    return Path(PathValue).expanduser()
-
-
-def _channel_from_name(PathValue):
-    """Extract the integer channel id from names such as ``frames_ch123.npy``."""
-    Stem = Path(PathValue).stem
-    try:
-        return int(Stem.split("ch")[-1])
-    except ValueError:
-        return None
-
-
-def LoadSpikeFrames(SpikeDir, IncludeLabels=None):
-    """Load channel spike frames from a processed ``spikes/<recording>`` folder.
-
-    Parameters
-    ----------
-    spike_dir : str or pathlib.Path
-        folder containing ``frames_ch*.npy`` and optionally ``label_ch*.npy``.
-    include_labels : list[int], optional
-        if provided, keep only spikes whose detector label is in this list.
-        Use ``None`` to keep all detected spikes.
-
-    Returns
-    -------
-    dict
-        ``{channel: frames}``, where each value is a sorted 1D integer array.
-    """
-    SpikeDir = _as_path(SpikeDir)
-    IncludeLabels = None if IncludeLabels is None else set(IncludeLabels)
-    Spikes = {}
-
-    for FramePath in sorted(SpikeDir.glob("frames_ch*.npy")):
-        Channel = _channel_from_name(FramePath)
-        if Channel is None:
-            continue
-
-        Frames = np.asarray(np.load(FramePath)).reshape(-1).astype(int)
-        LabelPath = FramePath.with_name(f"label_ch{Channel}.npy")
-        if IncludeLabels is not None and LabelPath.exists():
-            Labels = np.asarray(np.load(LabelPath)).reshape(-1).astype(int)
-            N = min(len(Frames), len(Labels))
-            Frames = Frames[:N][np.isin(Labels[:N], list(IncludeLabels))]
-
-        Spikes[Channel] = np.sort(Frames)
-
-    if not Spikes:
-        raise FileNotFoundError(f"No frames_ch*.npy files found in {SpikeDir}.")
-
-    return Spikes
+from . import SpikeSorting
 
 
 def FramesToSeconds(SpikeFrames, SamplingRate):
@@ -88,9 +39,10 @@ def FramesToSeconds(SpikeFrames, SamplingRate):
 
     Parameters
     ----------
-    spike_frames : dict
-        Mapping ``{channel: frames}``, as returned by :func:`LoadSpikeFrames`.
-    sampling_rate : float
+    SpikeFrames : dict
+        Mapping ``{channel: frames}``, as returned by
+        :func:`brain_3d.SpikeSorting.LoadSpikeFrames`.
+    SamplingRate : float
         Sampling rate in Hz used during acquisition.
 
     Returns
@@ -111,13 +63,13 @@ def BinSpikeCounts(SpikeTimes, BinSize, Duration=None, Channels=None):
 
     Parameters
     ----------
-    spike_times : dict
+    SpikeTimes : dict
         ``{channel: spike_times_seconds}``.
-    bin_size : float
+    BinSize : float
         bin size in seconds.
-    duration : float, optional
+    Duration : float, optional
         recording duration in seconds. If omitted, inferred from the latest spike.
-    channels : list[int], optional
+    Channels : list[int], optional
         channel order. If omitted, sorted channel keys are used.
 
     Returns
@@ -169,7 +121,7 @@ def SpikeCountCorrelation(SpikeTimes, BinSize=0.05, Duration=None, Channels=None
     return Matrix, Channels, Counts, BinEdges
 
 
-def _proportion_tiled(ReferenceTimes, TargetTimes, Dt):
+def ProportionTiled(ReferenceTimes, TargetTimes, Dt):
     """Return the fraction of reference spikes within ``dt`` of target spikes."""
     if len(ReferenceTimes) == 0 or len(TargetTimes) == 0:
         return 0.0
@@ -183,7 +135,7 @@ def _proportion_tiled(ReferenceTimes, TargetTimes, Dt):
     return Count / len(ReferenceTimes)
 
 
-def _covered_time_fraction(SpikeTimes, Dt, Duration):
+def CoveredTimeFraction(SpikeTimes, Dt, Duration):
     """Return the fraction of recording time covered by ``dt`` windows."""
     if len(SpikeTimes) == 0 or Duration <= 0:
         return 0.0
@@ -216,11 +168,11 @@ def STTCPair(TimesA, TimesB, Dt=0.02, Duration=None):
 
     Parameters
     ----------
-    times_a, times_b : array-like
+    TimesA, TimesB : array-like
         Spike times in seconds for two channels.
-    dt : float
+    Dt : float
         Temporal tolerance window in seconds.
-    duration : float, optional
+    Duration : float, optional
         Recording duration in seconds. If omitted, inferred from the latest
         spike in the pair.
 
@@ -238,10 +190,10 @@ def STTCPair(TimesA, TimesB, Dt=0.02, Duration=None):
     if Duration <= 0 or len(TimesA) == 0 or len(TimesB) == 0:
         return 0.0
 
-    Pa = _proportion_tiled(TimesA, TimesB, Dt)
-    Pb = _proportion_tiled(TimesB, TimesA, Dt)
-    Ta = _covered_time_fraction(TimesA, Dt, Duration)
-    Tb = _covered_time_fraction(TimesB, Dt, Duration)
+    Pa = ProportionTiled(TimesA, TimesB, Dt)
+    Pb = ProportionTiled(TimesB, TimesA, Dt)
+    Ta = CoveredTimeFraction(TimesA, Dt, Duration)
+    Tb = CoveredTimeFraction(TimesB, Dt, Duration)
 
     DenA = 1 - Pa * Tb
     DenB = 1 - Pb * Ta
@@ -255,13 +207,13 @@ def STTCMatrix(SpikeTimes, Dt=0.02, Duration=None, Channels=None, Verbose=False)
 
     Parameters
     ----------
-    spike_times : dict
+    SpikeTimes : dict
         Mapping ``{channel: spike_times_seconds}``.
-    dt : float
+    Dt : float
         STTC coincidence window in seconds.
-    duration : float, optional
+    Duration : float, optional
         Recording duration in seconds.
-    channels : list[int], optional
+    Channels : list[int], optional
         Channel order to use for matrix rows/columns.
 
     Returns
@@ -309,13 +261,13 @@ def CrossCorrelogramPeakMatrix(SpikeTimes, MaxLag=0.1, BinSize=0.005, Channels=N
 
     Parameters
     ----------
-    spike_times : dict
+    SpikeTimes : dict
         Mapping ``{channel: spike_times_seconds}``.
-    max_lag : float
+    MaxLag : float
         Maximum lag in seconds on each side of zero.
-    bin_size : float
+    BinSize : float
         Correlogram bin size in seconds.
-    channels : list[int], optional
+    Channels : list[int], optional
         Channel order to use for matrix rows/columns.
 
     Returns
@@ -357,13 +309,13 @@ def ThresholdMatrix(Matrix, Threshold, Absolute=True, KeepDiagonal=False):
 
     Parameters
     ----------
-    matrix : array-like
+    Matrix : array-like
         Weighted connectivity matrix.
-    threshold : float
+    Threshold : float
         Minimum score required for an edge.
-    absolute : bool
+    Absolute : bool
         If True, threshold absolute values. If False, threshold signed values.
-    keep_diagonal : bool
+    KeepDiagonal : bool
         If False, force the diagonal to zero.
 
     Returns
@@ -383,15 +335,15 @@ def MatrixToEdges(Matrix, Channels, Threshold=None, Absolute=True, Directed=Fals
 
     Parameters
     ----------
-    matrix : array-like
+    Matrix : array-like
         Weighted connectivity matrix.
-    channels : list[int]
+    Channels : list[int]
         Channel ids corresponding to matrix rows/columns.
-    threshold : float, optional
+    Threshold : float, optional
         If provided, keep only edges whose score is at least this value.
-    absolute : bool
+    Absolute : bool
         If True, apply threshold to absolute weights.
-    directed : bool
+    Directed : bool
         If False, return only the upper triangle. If True, return all
         off-diagonal directed pairs.
 
@@ -426,6 +378,31 @@ def NodeStrength(Matrix, Channels, Absolute=True):
     return pd.DataFrame({"channel": Channels, "strength": np.sum(Values, axis=1)})
 
 
+def EdgeNodeStrength(Edges, Channels=None, Absolute=True):
+    """Compute node strength from an edge table rather than a full matrix.
+
+    This is useful for network maps because node colour then reflects exactly
+    the subset of edges displayed in the figure.
+    """
+
+    if Channels is None:
+        if Edges.empty:
+            Channels = []
+        else:
+            Channels = pd.unique(pd.concat([Edges["source"], Edges["target"]], ignore_index=True))
+    Strength = {int(Channel): 0.0 for Channel in Channels}
+    for Row in Edges.itertuples(index=False):
+        Weight = float(getattr(Row, "weight"))
+        Value = abs(Weight) if Absolute else Weight
+        Source = int(getattr(Row, "source"))
+        Target = int(getattr(Row, "target"))
+        Strength[Source] = Strength.get(Source, 0.0) + Value
+        Strength[Target] = Strength.get(Target, 0.0) + Value
+    return pd.DataFrame(
+        {"channel": list(Strength), "strength": list(Strength.values())}
+    )
+
+
 def PlotConnectivityMatrix(
     Matrix,
     SavePath=None,
@@ -435,8 +412,6 @@ def PlotConnectivityMatrix(
     Vmax=1,
 ):
     """Plot a channel-by-channel connectivity matrix with a fixed scale."""
-    import matplotlib.pyplot as plt
-
     Values = np.asarray(Matrix, dtype=float)
     if Values.ndim != 2 or Values.shape[0] != Values.shape[1]:
         raise ValueError("Matrix must be a square two-dimensional array.")
@@ -490,8 +465,6 @@ def PlotNodeStrengthGrid(
     Cmap="viridis",
 ):
     """Plot a 64 x 64 heatmap of node-level connectivity strength."""
-    import matplotlib.pyplot as plt
-
     Grid = ChannelValuesToGrid(ChannelValues, ValueColumn=ValueColumn, GridShape=GridShape)
     Fig, Ax = plt.subplots(figsize=(7.2, 6.4))
     Image = Ax.imshow(Grid, cmap=Cmap, origin="upper", interpolation="nearest")
@@ -541,9 +514,6 @@ def PlotNetworkEdgeGrid(
     Cmap="viridis",
 ):
     """Draw selected connectivity edges on the physical MEA grid."""
-    import matplotlib.pyplot as plt
-    from matplotlib.collections import LineCollection
-
     Selected = SelectStrongEdges(
         Edges,
         Threshold=Threshold,
@@ -575,11 +545,13 @@ def PlotNetworkEdgeGrid(
 
     Segments = []
     Scores = []
+    Weights = []
     for Row in Selected.itertuples(index=False):
         SourceRow, SourceCol = ChannelToGrid(getattr(Row, "source"), GridShape=GridShape)
         TargetRow, TargetCol = ChannelToGrid(getattr(Row, "target"), GridShape=GridShape)
         Segments.append([(SourceCol, SourceRow), (TargetCol, TargetRow)])
         Scores.append(getattr(Row, "score"))
+        Weights.append(getattr(Row, "weight"))
 
     Fig, Ax = plt.subplots(figsize=(7.2, 6.4))
     if not NodePositions.empty:
@@ -600,8 +572,32 @@ def PlotNetworkEdgeGrid(
             LineWidths = 0.4 + 2.2 * (Scores - np.nanmin(Scores)) / (np.nanmax(Scores) - np.nanmin(Scores))
         else:
             LineWidths = np.full_like(Scores, 1.4)
-        Lines = LineCollection(Segments, linewidths=LineWidths, colors="#d62728", alpha=0.36)
-        Ax.add_collection(Lines)
+        Weights = np.asarray(Weights, dtype=float)
+        Positive = Weights >= 0
+        Negative = Weights < 0
+        LegendHandles = []
+        if Positive.any():
+            Ax.add_collection(
+                LineCollection(
+                    [Segments[Index] for Index in np.flatnonzero(Positive)],
+                    linewidths=LineWidths[Positive],
+                    colors="#d62728",
+                    alpha=0.42,
+                )
+            )
+            LegendHandles.append(Line2D([0], [0], color="#d62728", label="positive edge"))
+        if Negative.any():
+            Ax.add_collection(
+                LineCollection(
+                    [Segments[Index] for Index in np.flatnonzero(Negative)],
+                    linewidths=LineWidths[Negative],
+                    colors="#1f77b4",
+                    alpha=0.42,
+                )
+            )
+            LegendHandles.append(Line2D([0], [0], color="#1f77b4", label="negative edge"))
+        if LegendHandles:
+            Ax.legend(handles=LegendHandles, loc="upper left", bbox_to_anchor=(1.02, 1), frameon=False)
 
     Ax.set_title(f"{Title} ({len(Selected)} edges)")
     # The MEA coordinates are already conveyed by the grid and tick values;
@@ -638,22 +634,22 @@ def AnalyzeSpikeDir(
 
     Parameters
     ----------
-    spike_dir : str or pathlib.Path
+    SpikeDir : str or pathlib.Path
         processed recording folder containing ``frames_ch*.npy``.
-    sampling_rate : float
+    SamplingRate : float
         sampling rate used to convert frames to seconds.
-    duration : float, optional
+    Duration : float, optional
         duration in seconds. If omitted, inferred from spike frames.
-    include_labels : list[int], optional
+    IncludeLabels : list[int], optional
         Detector labels to keep, for example to include only negative or
         positive spikes when ``label_ch*.npy`` files are available.
-    bin_size : float
+    BinSize : float
         Bin size in seconds for spike-count correlation.
-    sttc_dt : float
+    STTCDt : float
         STTC coincidence window in seconds.
-    corr_threshold : float, optional
+    CorrThreshold : float, optional
         If provided, add thresholded correlation adjacency and edge table.
-    sttc_threshold : float, optional
+    STTCThreshold : float, optional
         If provided, add thresholded STTC adjacency and edge table.
 
     Returns
@@ -667,7 +663,7 @@ def AnalyzeSpikeDir(
     if Verbose:
         print(f"Loading spikes from: {SpikeDir}", flush=True)
 
-    SpikeFrames = LoadSpikeFrames(SpikeDir, IncludeLabels=IncludeLabels)
+    SpikeFrames = SpikeSorting.LoadSpikeFrames(SpikeDir, IncludeLabels=IncludeLabels)
     ExcludedChannels = set() if ExcludedChannels is None else set(ExcludedChannels)
     if ExcludedChannels:
         SpikeFrames = {
@@ -784,24 +780,3 @@ def AnalyzeSpikeDir(
         print(f"Analysis completed in {time.time() - StartTime:.1f} s", flush=True)
 
     return Result
-
-
-# Backward-compatible aliases for code written before the public API was
-# aligned with the PascalCase convention used by the other brain_3d modules.
-load_spike_frames = LoadSpikeFrames
-frames_to_seconds = FramesToSeconds
-bin_spike_counts = BinSpikeCounts
-spike_count_correlation = SpikeCountCorrelation
-sttc_pair = STTCPair
-sttc_matrix = STTCMatrix
-cross_correlogram_peak_matrix = CrossCorrelogramPeakMatrix
-threshold_matrix = ThresholdMatrix
-matrix_to_edges = MatrixToEdges
-node_strength = NodeStrength
-plot_connectivity_matrix = PlotConnectivityMatrix
-channel_to_grid = ChannelToGrid
-channel_values_to_grid = ChannelValuesToGrid
-plot_node_strength_grid = PlotNodeStrengthGrid
-select_strong_edges = SelectStrongEdges
-plot_network_edge_grid = PlotNetworkEdgeGrid
-analyze_spike_dir = AnalyzeSpikeDir

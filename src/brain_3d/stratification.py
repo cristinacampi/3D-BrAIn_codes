@@ -24,7 +24,7 @@ from tslearn.preprocessing import TimeSeriesScalerMeanVariance
 
 '''DISTANCES'''
 
-def d_m(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def MinkowskiDistance(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Minkowski distance.
 
@@ -171,7 +171,7 @@ def MatrixM(a, b):
 
     return M
 
-def d_dtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def DynamicTimeWarpingDistance(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Dynamic Time Warping distance.
 
@@ -209,7 +209,7 @@ def d_dtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCS
         D = C[L1][L1]
         return math.pow(D,0.5)
 
-def a1_b1_ddtw(a, b):
+def DerivativeCoefficients(a, b):
     """
     The new vectors built for the ddtw (wddtw) distance of the original vectors.
 
@@ -234,7 +234,7 @@ def a1_b1_ddtw(a, b):
         B1[I-1]=((b[I]-b[I-1])+((b[I+1]-b[I-1])/2))/2
     return A1, B1
 
-def d_ddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def DerivativeDynamicTimeWarpingDistance(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Derivative Dynamic Time Warping distance.
 
@@ -267,11 +267,11 @@ def d_ddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
     if L1 != L2:
         print('vectors with not equal length')
     else:
-        A1, B1 = a1_b1_ddtw(a, b)
-        D = d_dtw(A1,B1)
+        A1, B1 = DerivativeCoefficients(a, b)
+        D = DynamicTimeWarpingDistance(A1,B1)
         return D
 
-def d_wdtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def WeightedDynamicTimeWarpingDistance(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Weighted Dynamic Time Warping distance.
 
@@ -335,7 +335,7 @@ def MatrixMw(M, wMax, g):
                 M[I,J] = (wMax/(1+math.exp(-g*(abs(I-J)-L1/2))))*M[I,J]
     return M
 
-def d_wddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate = 1000):
+def WeightedDerivativeDynamicTimeWarpingDistance(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate = 1000):
     """
     Derivative Weigthed Dynamic Time Warping distance.
 
@@ -363,11 +363,11 @@ def d_wddtw(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonL
     d : float
         wdtw distance between a and b.
     """
-    A1, B1 = a1_b1_ddtw(a, b)
-    D = d_wdtw(A1, B1, wMax = wMax, g = g)
+    A1, B1 = DerivativeCoefficients(a, b)
+    D = WeightedDynamicTimeWarpingDistance(A1, B1, wMax = wMax, g = g)
     return D
 
-def d_lcss(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def LongestCommonSubsequenceDistance(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Longest Common Subsequence distance.
 
@@ -415,7 +415,7 @@ def d_lcss(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLC
         D = 1 - LCSS/L1
         return D
 
-def d_edr(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def EditDistanceOnRealSequence(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Edit distance on Real Sequences.
 
@@ -467,7 +467,7 @@ def d_edr(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCS
         D = E[L1][L1]
         return D
 
-def d_rho_2 (a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def CorrelationDistance (a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Distance based on the Pearson's correlation coefficient.
 
@@ -505,7 +505,7 @@ def d_rho_2 (a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilon
         D = 2*(1-Rho)
     return D
 
-def d_sts(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
+def ShortTimeSeriesDistance(a, b, pMinkowski  = 2, wMax = 1, g = 1, epsilonEDR = 0.001, epsilonLCSS = 0.001, SamplingRate=1000):
     """
     Short Time Series distance.
 
@@ -612,6 +612,7 @@ def NormalizationMinMaxSingle(Data):
             Data[I,:] = (Data[I,:]-Minimum)/(M-Minimum)
 
     return Data
+
 
 def NormalizationMinMaxGlobal(Data):
     """
@@ -1052,7 +1053,7 @@ def ICAAlgo(Data, ncomp = 10):
     Xback = ICA.inverse_transform(Xtransformed)
     return Xtransformed, Xback
 
-def kernelPCAAlgo(Data, ncomp = 10):
+def KernelPCAAlgo(Data, ncomp = 10):
     """
     Given a Dataset and a threshold between (0 and 1) in the term of the dispersion of the Data to maintain, the function applies.
 
@@ -1302,7 +1303,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             Clusters, NClasses, Centers = KshapeAlgo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
         elif Algo == "KernelPCA&KShape":
-            Data, DataPostPCA = kernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
+            Data, DataPostPCA = KernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
             Clusters, NClasses, Centers = KshapeAlgo(Data=Data, nc2test=Nc2test, methodKM=methodKM)
 
 
@@ -1393,7 +1394,7 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
             NClasses = len(Clusters)
 
         elif Algo=="kernelPCA&HC":
-            Data, DataPostPCA  = kernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
+            Data, DataPostPCA  = KernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
             ThresholdDendrogram = Dendrogram(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram)
             ClustersHC = HierarchicalClustering(Data=Data, methodHC=methodHC, distance=Distance, ThresholdDendrogram=ThresholdDendrogram, MaxClasses=Nc2test, criterion=criterionHC,
                                                  DistanceStr = DistanceStr,
@@ -1407,13 +1408,13 @@ def Clustering(Data, Algo = 'KM', DistanceStr = 'm', methodHC = 'complete', crit
 
 
         elif Algo == "kernelPCA&KM":
-            Data, DataPostPCA = kernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
+            Data, DataPostPCA = KernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
             Clusters, NClasses, Centers = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
 
 
 
         elif Algo == "kernelPCA&FCM":
-            Data, DataPostPCA  = kernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
+            Data, DataPostPCA  = KernelPCAAlgo(Data=Data, ncomp = KPCAncomp)
             ClustersKM, NClassesKM, CentersKM = KmeansAlgo(Data=Data, nc2test=Nc2test, distance=Distance, methodKM=methodKM)
             MaxIter = 5
             Clusters, CentersFCM, MembershipMat = Fcm.FCM(Data=Data, NClasses = NClassesKM, Centers=CentersKM, FuzzyParameter=FuzzyParameter, MaxIter=MaxIterFCM, Metric=Distance)
@@ -1606,3 +1607,17 @@ def GaussianNoise(Data, noise, seed):
             Data[I] = Data[I]+noise*np.random.normal(0,Sigma,len(Data[I]))
 
     return Data
+
+
+# Backward-compatible aliases for the historical distance-function API.
+d_m = MinkowskiDistance
+d_dtw = DynamicTimeWarpingDistance
+a1_b1_ddtw = DerivativeCoefficients
+d_ddtw = DerivativeDynamicTimeWarpingDistance
+d_wdtw = WeightedDynamicTimeWarpingDistance
+d_wddtw = WeightedDerivativeDynamicTimeWarpingDistance
+d_lcss = LongestCommonSubsequenceDistance
+d_edr = EditDistanceOnRealSequence
+d_rho_2 = CorrelationDistance
+d_sts = ShortTimeSeriesDistance
+kernelPCAAlgo = KernelPCAAlgo

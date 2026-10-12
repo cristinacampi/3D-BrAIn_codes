@@ -1,3 +1,5 @@
+"""Generative-adversarial network components for MEA time-series data."""
+
 import pandas as pd
 import numpy as np
 import torch
@@ -110,6 +112,7 @@ class MEADataset(Dataset):
     """
     def __init__(self, data_path):
 
+        """Initialize the MEADataset instance."""
         MeaData = pd.read_csv(data_path, sep=None, engine='python', decimal=',', on_bad_lines='skip')
         self.signal_data = MeaData.iloc[:, :-2].values.astype(np.float32)
 
@@ -120,17 +123,20 @@ class MEADataset(Dataset):
         self.normalized_data = self.normalized_data[:, :, np.newaxis]  # (shape [num_samples, 99, 1])
 
     def __len__(self):
+        """Return the number of samples in the dataset."""
         return len(self.signal_data)
 
     def __getitem__(self, idx):
         # Return signal data and condition based on channel for CGAN
+        """Return one dataset sample by index."""
         Signal = torch.tensor(self.normalized_data[idx], dtype=torch.float32)
         #condition = torch.tensor([1.0] if self.channels[idx] == 10 else [0.0], dtype=torch.float32)
         #return signal, condition
         return Signal
 
-    def plot_data(self):
+    def PlotData(self):
         # Plot original and normalized data
+        """Plot original and normalized MEA signals for visual inspection."""
         Fig, Axes = plt.subplots(2, 1, figsize=(12, 8))
 
         # Plot original data
@@ -166,6 +172,7 @@ class PositionalEncoding(nn.Module):
         input tensor with positional encodings added
     """
     def __init__(self, feature_dim, max_len, freq_scaling=1):
+        """Initialize the PositionalEncoding instance."""
         super(PositionalEncoding, self).__init__()
         self.feature_dim = feature_dim
 
@@ -184,6 +191,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', Pe)
 
     def forward(self, x):
+        """Run the neural-network forward pass."""
         x = x + self.pe[:x.size(0), :].unsqueeze(1)
         #pe = self.pe[:x.size(0), :].unsqueeze(1)
         #pe = pe[:, :, :x.size(2)]  # Match feature dim of `x`
@@ -213,6 +221,7 @@ class TransformerEncoderBlock(nn.Module):
         output tensor of shape [seq_len, batch_size, emb_dim]
     """
     def __init__(self, input_dim, emb_dim=240, num_heads=3, dropout_rate=0.1):
+        """Initialize the TransformerEncoderBlock instance."""
         super(TransformerEncoderBlock, self).__init__()
 
         self.attention = nn.MultiheadAttention(embed_dim=emb_dim, num_heads=num_heads)
@@ -228,13 +237,15 @@ class TransformerEncoderBlock(nn.Module):
         )
         self.dropout2 = nn.Dropout(dropout_rate)  # Final dropout after feed-forward
 
-    def central_attention_mask(seq_len, focus_start, focus_end):
+    def CentralAttentionMask(seq_len, focus_start, focus_end):
+        """Create an attention mask focused on a contiguous sequence region."""
         Mask = torch.ones(seq_len, seq_len, dtype=torch.bool)
         Mask[focus_start:focus_end, :] = False  # attention only in central window
         Mask[:, focus_start:focus_end] = False  # attention only to central window
         return Mask
 
-    def gaussian_attention_mask(seq_len, center, std_dev):
+    def GaussianAttentionMask(seq_len, center, std_dev):
+        """Create a Gaussian attention mask around a sequence centre."""
         Indices = torch.arange(seq_len).float()
         Weights = torch.exp(-0.5 * ((Indices - center) / std_dev) ** 2)
         Mask = 1.0 - Weights.unsqueeze(0) * Weights.unsqueeze(1)
@@ -243,14 +254,15 @@ class TransformerEncoderBlock(nn.Module):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     focus_start, focus_end = 30, 70  # central region with spike #TODO: make parameter
-    mask = central_attention_mask(seq_len=99, focus_start=focus_start, focus_end=focus_end).to(device)
+    mask = CentralAttentionMask(seq_len=99, focus_start=focus_start, focus_end=focus_end).to(device)
 
     center, std_dev = 49, 10  # Gaussian center and deviation standard
-    gaussian_mask = gaussian_attention_mask(seq_len=99, center=center, std_dev=std_dev).to(device)
+    gaussian_mask = GaussianAttentionMask(seq_len=99, center=center, std_dev=std_dev).to(device)
 
 
     def forward(self, x, mask):
         #attn_output, _ = self.attention(x, x, x)
+        """Run the neural-network forward pass."""
         AttnOutput, _ = self.attention(x, x, x, attn_mask=mask)
         #attn_output, _ = self.attention(x, x, x, attn_mask=gaussian_mask)
         x = self.norm1(x + self.dropout1(AttnOutput))
@@ -282,6 +294,7 @@ class MEAEncoder(nn.Module):
         encoded representation of shape [seq_len, batch_size, latent_dim]
     """
     def __init__(self, emb_dim, latent_dim, num_heads, num_layers, dropout_rate):
+        """Initialize the MEAEncoder instance."""
         super(MEAEncoder, self).__init__()
 
         self.transformer_blocks = nn.ModuleList([
@@ -297,6 +310,7 @@ class MEAEncoder(nn.Module):
 
 
     def forward(self, x, gaussian_mask):
+        """Run the neural-network forward pass."""
         for Block in self.transformer_blocks:
             x = Block(x, gaussian_mask)
 
@@ -320,6 +334,7 @@ class MEADecoder(nn.Module):
         reconstructed signal of shape [seq_len, batch_size, output_dim]
     """
     def __init__(self, latent_dim, output_dim, p_drop=0.3):
+        """Initialize the MEADecoder instance."""
         super(MEADecoder, self).__init__()
         self.decoder = nn.Sequential(
             nn.Linear(latent_dim, 256),
@@ -331,6 +346,7 @@ class MEADecoder(nn.Module):
         )
 
     def forward(self, z):
+        """Run the neural-network forward pass."""
         return self.decoder(z)
 
 class MEAGenerator(nn.Module):
@@ -365,6 +381,7 @@ class MEAGenerator(nn.Module):
         generated signal of shape [seq_len, batch_size, feature_dim]
     """
     def __init__(self, input_dim, latent_dim, feature_dim, emb_dim, freq_scaling=1.5, num_heads=3, num_encoder_layers=4,  dropout_rate=0.3, p_drop=0.3,  dim_decoder=36):
+        """Initialize the MEAGenerator instance."""
         super(MEAGenerator, self).__init__()
         # (*)Positional Encoding
         self.positional_encoding = PositionalEncoding(feature_dim, input_dim, freq_scaling=freq_scaling)
@@ -386,6 +403,7 @@ class MEAGenerator(nn.Module):
 
     def forward(self, x=None, noise=None):
         # if x is not provided, the generator get noise as input
+        """Run the neural-network forward pass."""
         if x is None:
             assert noise is not None
             # creation of the temoporal axis [seq_len, 1]
@@ -411,7 +429,7 @@ class MEAGenerator(nn.Module):
         x = x.permute(1, 0, 2)
 
         Center, StdDev = x.size(0) // 2, 6
-        GaussianMask = TransformerEncoderBlock.gaussian_attention_mask(x.size(0), Center, StdDev).to(x.device)
+        GaussianMask = TransformerEncoderBlock.GaussianAttentionMask(x.size(0), Center, StdDev).to(x.device)
 
         # transformer needs input as [99, batch_size, 240]
         Z = self.encoder(x, GaussianMask)
@@ -446,6 +464,7 @@ class Discriminator(nn.Module):
         classification output (real/fake probability) of shape [batch_size, 1]
     """
     def __init__(self, seq_len=99, feature_dim=1, hidden_dim=128):
+        """Initialize the Discriminator instance."""
         super(Discriminator, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv1d(feature_dim, 64, kernel_size=3, padding=1),
@@ -531,13 +550,13 @@ class GANTrainer:
         self.dis_losses = []
         self.reconstruction_losses = []
 
-    def preprocess_batch(self,batch):
+    def PreprocessBatch(self,batch):
         """
         Preprocessa il batch per avere la forma [99, batch_size, feature_dim].
         """
         return batch.permute(1, 0, 2)
 
-    def wasserstein_loss(self, y_true, y_pred):
+    def WassersteinLoss(self, y_true, y_pred):
         """Calculate Wasserstein loss.
 
         Parameters
@@ -554,7 +573,7 @@ class GANTrainer:
         """
         return torch.mean(y_true * y_pred)
 
-    def ssim_loss(self, img1, img2, window_size=11, reduction='mean'):
+    def SSIMLoss(self, img1, img2, window_size=11, reduction='mean'):
         """Calculate Structural Similarity Index (SSIM) loss.
 
         Parameters
@@ -576,19 +595,21 @@ class GANTrainer:
         C1 = 0.01 ** 2
         C2 = 0.03 ** 2
 
-        def gaussian(window_size, sigma):
+        def Gaussian(window_size, sigma):
+            """Create a normalized one-dimensional Gaussian kernel."""
             Gauss = torch.Tensor([math.exp(-(X - window_size // 2) ** 2 / float(2 * sigma ** 2))
                                 for X in range(window_size)])
             return Gauss / Gauss.sum()
 
-        def create_window(window_size, channel):
-            Window1D = gaussian(window_size, 1.5).unsqueeze(1)
+        def CreateWindow(window_size, channel):
+            """Expand a Gaussian kernel into a channel-wise SSIM window."""
+            Window1D = Gaussian(window_size, 1.5).unsqueeze(1)
             Window2D = Window1D.mm(Window1D.t()).float().unsqueeze(0).unsqueeze(0)
             Window = Window2D.expand(channel, 1, window_size, window_size).contiguous()
             return Window
 
         (_, Channel, Height, Width) = img1.shape()
-        Window = create_window(window_size, Channel).to(img1.device)
+        Window = CreateWindow(window_size, Channel).to(img1.device)
 
         Mu1 = conv2d(img1, Window, padding=window_size // 2, groups=Channel)
         Mu2 = conv2d(img2, Window, padding=window_size // 2, groups=Channel)
@@ -605,7 +626,7 @@ class GANTrainer:
         return 1 - SsimMap.mean() if reduction == 'mean' else 1 - SsimMap
 
 
-    def gradient_penalty(self, discriminator, real_data, fake_data):
+    def GradientPenalty(self, discriminator, real_data, fake_data):
         """Calculate gradient penalty for Wasserstein GAN with gradient penalty.
 
         Parameters
@@ -645,7 +666,7 @@ class GANTrainer:
         return Penalty
 
 
-    def train_step(self, batch):
+    def TrainStep(self, batch):
         """Perform one training step for both generator and discriminator.
 
         Parameters
@@ -658,7 +679,7 @@ class GANTrainer:
         tuple
             (generator_loss, discriminator_loss)
         """
-        RealData = self.preprocess_batch(batch)
+        RealData = self.PreprocessBatch(batch)
         BatchSize = RealData.size(1)
 
         # Generator training
@@ -708,7 +729,7 @@ class GANTrainer:
         RealLoss = -torch.mean(RealValidity)
         FakeLoss = torch.mean(FakeValidity)
 
-        Gp = self.gradient_penalty(self.discriminator, RealData.data.detach(), FakeData.data.detach())
+        Gp = self.GradientPenalty(self.discriminator, RealData.data.detach(), FakeData.data.detach())
         DiscLoss = RealLoss + FakeLoss + self.gp_lambda * Gp
         #disc_loss = self.wasserstein_loss(real_validity, torch.ones_like(real_validity)) - self.wasserstein_loss(fake_validity, torch.zeros_like(fake_validity))
         DiscLoss.backward(retain_graph=True)
@@ -743,7 +764,7 @@ class GANTrainer:
             self.reconstruction_losses = []
 
             for Batch in data_loader:
-                GenLoss, DiscLoss = self.train_step(Batch)
+                GenLoss, DiscLoss = self.TrainStep(Batch)
                 self.gen_losses.append(GenLoss)
                 self.dis_losses.append(DiscLoss)
 
@@ -786,7 +807,7 @@ class GANTrainer:
 
 
 
-    def save_losses(self, filename):
+    def SaveLosses(self, filename):
         """Save training losses to CSV file.
 
         Parameters
@@ -805,7 +826,7 @@ class GANTrainer:
                 Writer.writerow([Epoch, GenLoss, DiscLoss])
         print(f"Training losses saved to {filename}")
 
-    def plot_losses(self, filename=None):
+    def PlotLosses(self, filename=None):
         """Plot generator and discriminator losses.
 
         Parameters
@@ -832,7 +853,7 @@ class GANTrainer:
 
         plt.show()
 
-    def visualize_generated_data(self, real_data, num_samples=5):
+    def VisualizeGeneratedData(self, real_data, num_samples=5):
         """Visualize generated and real samples side-by-side.
 
         Parameters
@@ -866,7 +887,7 @@ class GANTrainer:
         return GenData
 
 
-    def save_generated_samples(self, real_data, filename=None, num_samples=5):
+    def SaveGeneratedSamples(self, real_data, filename=None, num_samples=5):
         """Save generated samples to numpy file.
 
         Parameters
@@ -888,5 +909,24 @@ class GANTrainer:
             GeneratedData = self.generator(real_data[:num_samples].permute(1,0,2), Noise)
             GeneratedData = GeneratedData.squeeze(-1).cpu().numpy()
 
-        np.save(filename, GeneratedData)
+            np.save(filename, GeneratedData)
         print(f"Generated samples saved to {filename}")
+
+
+# Backward-compatible aliases for the former snake_case public methods.
+MEADataset.plot_data = MEADataset.PlotData
+TransformerEncoderBlock.central_attention_mask = staticmethod(
+    TransformerEncoderBlock.CentralAttentionMask
+)
+TransformerEncoderBlock.gaussian_attention_mask = staticmethod(
+    TransformerEncoderBlock.GaussianAttentionMask
+)
+GANTrainer.preprocess_batch = GANTrainer.PreprocessBatch
+GANTrainer.wasserstein_loss = GANTrainer.WassersteinLoss
+GANTrainer.ssim_loss = GANTrainer.SSIMLoss
+GANTrainer.gradient_penalty = GANTrainer.GradientPenalty
+GANTrainer.train_step = GANTrainer.TrainStep
+GANTrainer.save_losses = GANTrainer.SaveLosses
+GANTrainer.plot_losses = GANTrainer.PlotLosses
+GANTrainer.visualize_generated_data = GANTrainer.VisualizeGeneratedData
+GANTrainer.save_generated_samples = GANTrainer.SaveGeneratedSamples

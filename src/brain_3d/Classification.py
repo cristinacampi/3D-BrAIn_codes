@@ -17,53 +17,488 @@ layout. Main scripts are responsible for deciding whether samples are split by
 recording, organoid, experimental date, or another biological grouping.
 """
 
+import json
 import os
+import re
 import tempfile
 from pathlib import Path
+
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from sklearn.linear_model import RidgeClassifierCV as SklearnRidgeClassifierCV
+from sklearn.decomposition import PCA
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression, RidgeClassifierCV as SklearnRidgeClassifierCV
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
+
+from . import Mamba, SpikeSorting
+
+try:
+    from sktime.transformations.panel.rocket import MiniRocket, MiniRocketMultivariate
+except ImportError:
+    MiniRocket = None
+    MiniRocketMultivariate = None
 
 
-def _as_path(path):
+def RecordingKey(Value):
+    """Normalize a recording identifier for table joins."""
+    if pd.isna(Value):
+        return ""
+    Text = re.sub(r"\.brw$", "", str(Value).strip(), flags=re.IGNORECASE)
+    return re.sub(r"\s+", "", Text).lower()
+
+
+def SafeName(Value):
+    """Convert a value into a filesystem-safe identifier."""
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", str(Value)).strip("_")
+
+
+def FindWellMetricFiles(MetricsRoot):
+    """Find well-level spike and burst metric tables below a root."""
+    return sorted(Path(MetricsRoot).glob("**/spike_burst/well_spike_burst_metrics.csv"))
+
+
+def LoadWellMetrics(MetricsRoots):
+    """Load and concatenate well-level metrics from multiple roots."""
+    Rows = []
+    CheckedRoots = []
+    for MetricsRoot in map(Path, MetricsRoots):
+        CheckedRoots.append(str(MetricsRoot))
+        if not MetricsRoot.exists():
+            continue
+        for MetricPath in FindWellMetricFiles(MetricsRoot):
+            Metric = pd.read_csv(MetricPath)
+            if Metric.empty:
+                continue
+            First = Metric.iloc[0].copy()
+            RecordingName = First.get("RecordingName", MetricPath.parents[1].name)
+            First["recording_name"] = RecordingName
+            First["recording_name_key"] = RecordingKey(RecordingName)
+            First["metrics_path"] = str(MetricPath)
+            Rows.append(First)
+    if not Rows:
+        raise FileNotFoundError(
+            "No well_spike_burst_metrics.csv files found under: "
+            + ", ".join(CheckedRoots)
+        )
+    return pd.DataFrame(Rows)
+
+
+def LoadChannelMetrics(LabeledWell):
+    """Load channel metrics associated with labeled well records."""
+    Rows = []
+    for _, Row in LabeledWell.iterrows():
+        ChannelPath = Path(Row["metrics_path"]).with_name("channel_spike_burst_metrics.csv")
+        if not ChannelPath.exists():
+            continue
+        Channels = pd.read_csv(ChannelPath)
+        Channels.insert(0, "record_id", Row["record_id"])
+        Channels.insert(1, "recording_name", Row["recording_name"])
+        Channels.insert(2, "label_normalized", Row["label_normalized"])
+        Channels.insert(3, "label_code", Row["label_code"])
+        Rows.append(Channels)
+    return pd.concat(Rows, ignore_index=True) if Rows else pd.DataFrame()
+
+
+def FeatureColumns(Frame, NonFeatureColumns):
+    """Select numeric analysis features while excluding metadata columns."""
+    Numeric = Frame.select_dtypes(include=[np.number, "bool"]).columns.tolist()
+    return [
+        Column for Column in Numeric
+        if Column not in NonFeatureColumns
+        and not Column.endswith("_present")
+        and Column not in {"combination_present", "spontaneous_control"}
+    ]
+
+
+def LoadRecordingWaveforms(
+    RecordingDirectory,
+    RandomGenerator,
+    FilterConfig,
+    RecordingDuration,
+    MinimumActiveRate,
+    MaximumSpikes,
+    ExcludeChannel=None,
+):
+    """Load and summarize waveforms selected by a polarity configuration."""
+    ActiveWaveforms, ActiveCounts = [], []
+    InputCount = LabelCount = FilteredCount = ChannelsWithSpikes = 0
+    for Channel, Arrays in SpikeSorting.LoadSpikeRecording(RecordingDirectory).items():
+        if ExcludeChannel is not None and Channel == ExcludeChannel:
+            continue
+        Spikes = Arrays["Spikes"]
+        if Spikes.size == 0:
+            continue
+        Spikes = np.asarray(Spikes).reshape(Spikes.shape[0], -1)
+        Labels = Arrays["Labels"]
+        Count = min(len(Spikes), len(Labels))
+        Spikes, Labels = Spikes[:Count], Labels[:Count]
+        InputCount += Count
+        Polarity = getattr(FilterConfig, "polarity", "negative")
+        LabelOnlyConfig = SpikeSorting.SpikePolarityFilterConfig(
+            polarity=Polarity,
+            negative_spike_label=FilterConfig.negative_spike_label,
+            positive_spike_label=getattr(FilterConfig, "positive_spike_label", 1),
+            use_detector_label_filter=FilterConfig.use_detector_label_filter,
+            use_waveform_polarity_filter=False,
+        )
+        LabelCount += int(SpikeSorting.WaveformPolarityMask(Spikes, Labels, LabelOnlyConfig).sum())
+        if isinstance(FilterConfig, SpikeSorting.NegativeSpikeFilterConfig):
+            Keep = SpikeSorting.NegativeWaveformMask(Spikes, Labels, FilterConfig)
+        else:
+            Keep = SpikeSorting.WaveformPolarityMask(Spikes, Labels, FilterConfig)
+        FilteredCount += int(Keep.sum())
+        Spikes = Spikes[Keep]
+        if not len(Spikes):
+            continue
+        ChannelsWithSpikes += 1
+        if len(Spikes) / float(RecordingDuration) <= MinimumActiveRate:
+            continue
+        ActiveWaveforms.append(Spikes)
+        ActiveCounts.append(len(Spikes))
+    if not ActiveWaveforms:
+        raise ValueError(f"No active plausible {getattr(FilterConfig, 'polarity', 'negative')}-spike channels found.")
+    Waveforms = np.vstack(ActiveWaveforms)
+    if len(Waveforms) > MaximumSpikes:
+        Waveforms = Waveforms[RandomGenerator.choice(len(Waveforms), MaximumSpikes, replace=False)]
+    Counts = np.asarray(ActiveCounts, dtype=float)
+    Total = float(Counts.sum())
+    Probabilities = Counts / Total if Total else np.zeros_like(Counts)
+    Metadata = {
+        "recording_name": Path(RecordingDirectory).name,
+        "n_input_spikes": InputCount,
+        "n_after_label_filter": LabelCount,
+        "n_after_waveform_filter": FilteredCount,
+        "total_spikes": Total,
+        "sampled_spikes": len(Waveforms),
+        "duration_seconds": float(RecordingDuration),
+        "firing_rate_hz": Total / float(RecordingDuration),
+        "n_channels_with_spikes": ChannelsWithSpikes,
+        "n_active_channels": len(Counts),
+        "mean_spikes_per_channel": float(np.mean(Counts)),
+        "median_spikes_per_channel": float(np.median(Counts)),
+        "max_spikes_per_channel": float(np.max(Counts)),
+        "channel_entropy": float(-(Probabilities * np.log2(Probabilities + 1e-12)).sum()),
+        "waveform_mean": float(np.mean(Waveforms)),
+        "waveform_std": float(np.std(Waveforms)),
+        "waveform_min": float(np.min(Waveforms)),
+        "waveform_max": float(np.max(Waveforms)),
+        "waveform_ptp": float(np.ptp(Waveforms)),
+        "waveform_energy": float(np.mean(Waveforms ** 2)),
+    }
+    return Waveforms.astype(np.float32), Metadata
+
+
+def LoadNegativeRecordingWaveforms(
+    RecordingDirectory,
+    RandomGenerator,
+    FilterConfig,
+    RecordingDuration,
+    MinimumActiveRate,
+    MaximumSpikes,
+    ExcludeChannel=None,
+):
+    """Load negative recording waveforms through the legacy public interface."""
+    return LoadRecordingWaveforms(
+        RecordingDirectory,
+        RandomGenerator,
+        FilterConfig,
+        RecordingDuration,
+        MinimumActiveRate,
+        MaximumSpikes,
+        ExcludeChannel,
+    )
+
+
+def MambaSequence(Waveforms):
+    """Build the five-profile sequence used by recording-level Mamba models."""
+    return np.stack([
+        np.mean(Waveforms, axis=0), np.std(Waveforms, axis=0),
+        np.median(Waveforms, axis=0), np.percentile(Waveforms, 25, axis=0),
+        np.percentile(Waveforms, 75, axis=0),
+    ]).astype(np.float32)
+
+
+def ClassicalFeatureRow(Metadata, Waveforms, Bundle):
+    """Build one recording-level feature row for a saved classical model."""
+    Values = {Key: float(Value) for Key, Value in Metadata.items() if isinstance(Value, (int, float))}
+    Extractor = Bundle.get("rocket_extractor")
+    if Extractor is not None:
+        Features = np.asarray(Extractor.transform(Waveforms[:, np.newaxis, :]))
+        Values.update({f"rocket_mean_{Index}": Value for Index, Value in enumerate(Features.mean(axis=0))})
+        Values.update({f"rocket_std_{Index}": Value for Index, Value in enumerate(Features.std(axis=0))})
+    Row = pd.DataFrame([{Column: Values.get(Column, 0.0) for Column in Bundle["feature_columns"]}])
+    return Row.replace([np.inf, -np.inf], np.nan).fillna(0)
+
+
+def LabelFromMapping(Mapping, Code):
+    """Resolve a predicted code to its stored display label."""
+    for Key in (Code, int(Code) if isinstance(Code, np.integer) else Code, str(Code)):
+        if Key in Mapping:
+            return Mapping[Key]
+    return str(Code)
+
+
+def ParseModelName(ModelName):
+    """Split a composite model name into feature-set and classifier names."""
+    for FeatureSet in ("activity", "waveform", "combined"):
+        Prefix = f"{FeatureSet}_"
+        if ModelName.startswith(Prefix):
+            return FeatureSet, ModelName[len(Prefix):]
+    return None, ModelName
+
+
+def BuildRecordingFeatureMatrix(Recordings, Names, Waveforms, Extractor, Columns, BaseColumns):
+    """Aggregate scalar and optional ROCKET features by recording."""
+    Rows = []
+    for _, Recording in Recordings.set_index("recording_name").loc[Names].reset_index().iterrows():
+        Values = {Column: float(Recording[Column]) for Column in BaseColumns}
+        if Extractor is not None:
+            Features = np.asarray(Extractor.transform(Waveforms[Recording["recording_name"]][:, np.newaxis, :]))
+            Values.update({f"rocket_mean_{Index}": Value for Index, Value in enumerate(Features.mean(axis=0))})
+            Values.update({f"rocket_std_{Index}": Value for Index, Value in enumerate(Features.std(axis=0))})
+        Rows.append(pd.Series(Values, name=Recording["recording_name"]))
+    Matrix = pd.DataFrame(Rows)
+    Matrix.index.name = "recording_name"
+    return Matrix.reindex(columns=Columns).replace([np.inf, -np.inf], np.nan).fillna(0)
+
+
+def ToJsonable(Value):
+    """Convert NumPy, path, and nested values into JSON-compatible data."""
+    if isinstance(Value, dict):
+        return {str(Key): ToJsonable(Item) for Key, Item in Value.items()}
+    if isinstance(Value, (list, tuple)):
+        return [ToJsonable(Item) for Item in Value]
+    if isinstance(Value, np.ndarray):
+        return ToJsonable(Value.tolist())
+    if isinstance(Value, np.integer):
+        return int(Value)
+    if isinstance(Value, np.floating):
+        return float(Value)
+    if isinstance(Value, np.bool_):
+        return bool(Value)
+    if isinstance(Value, Path):
+        return str(Value)
+    if Value is None or isinstance(Value, (str, int, float, bool)):
+        return Value
+    return str(Value)
+
+
+def SaveJson(PathValue, Payload):
+    """Serialize a metadata payload as deterministic indented JSON."""
+    with open(PathValue, "w", encoding="utf-8") as Handle:
+        json.dump(ToJsonable(Payload), Handle, indent=2, sort_keys=True)
+
+
+def ModelFamily(ClassifierName):
+    """Return the broad algorithm family for a classifier name."""
+    if ClassifierName == "mamba": return "State-space model"
+    if "svm" in ClassifierName: return "SVM"
+    if "forest" in ClassifierName or "trees" in ClassifierName: return "Ensemble"
+    if "logistic" in ClassifierName or "ridge" in ClassifierName: return "Linear model"
+    if "dummy" in ClassifierName: return "Baseline"
+    return "Machine learning"
+
+
+def ModelTypeLabel(ClassifierName):
+    """Return a human-readable model type for catalogue metadata."""
+    Labels = {
+        "mamba": "Selective state-space sequence model", "ridge_pca90": "Ridge classifier with PCA",
+        "logistic_balanced_pca90": "Balanced logistic regression with PCA",
+        "linear_svm_balanced_pca90": "Balanced linear support vector machine with PCA",
+        "rbf_svm_balanced_pca90": "Balanced RBF support vector machine with PCA",
+        "random_forest_balanced": "Balanced random forest classifier",
+        "extra_trees_balanced": "Balanced Extra Trees classifier",
+        "dummy_most_frequent": "Most-frequent-class dummy baseline",
+    }
+    return Labels.get(ClassifierName, ClassifierName.replace("_", " "))
+
+
+def BuildRecordingClassifiers(PcaVariance=0.90, RandomState=42):
+    """Construct fresh baseline, linear, kernel, and tree classifiers."""
+    return {
+        "dummy_most_frequent": make_pipeline(DummyClassifier(strategy="most_frequent")),
+        "ridge_pca90": make_pipeline(StandardScaler(), PCA(n_components=PcaVariance, svd_solver="full"), SklearnRidgeClassifierCV(alphas=np.logspace(-3, 3, 10))),
+        "logistic_balanced_pca90": make_pipeline(StandardScaler(), PCA(n_components=PcaVariance, svd_solver="full"), LogisticRegression(class_weight="balanced", max_iter=5000)),
+        "linear_svm_balanced_pca90": make_pipeline(StandardScaler(), PCA(n_components=PcaVariance, svd_solver="full"), SVC(kernel="linear", class_weight="balanced")),
+        "rbf_svm_balanced_pca90": make_pipeline(StandardScaler(), PCA(n_components=PcaVariance, svd_solver="full"), SVC(kernel="rbf", class_weight="balanced")),
+        "random_forest_balanced": make_pipeline(RandomForestClassifier(n_estimators=300, class_weight="balanced", max_features="sqrt", random_state=RandomState, n_jobs=-1)),
+        "extra_trees_balanced": make_pipeline(ExtraTreesClassifier(n_estimators=300, class_weight="balanced", max_features="sqrt", random_state=RandomState, n_jobs=-1)),
+    }
+
+
+def TrainingDatasetMetadata(Recordings, SelectedModels, Context):
+    """Build serializable metadata describing a recording-level training set."""
+    Group = Context["group_column"]
+    Counts = Recordings.groupby(["label_code", "label_normalized"], as_index=False).agg(
+        recordings=("recording_name", "count"), biological_units=(Group, "nunique"),
+        sampled_spikes=("sampled_spikes", "sum"), active_channels=("n_active_channels", "sum"),
+    ).sort_values("label_code")
+    return {
+        "experiment_id": Context["experiment_id"], "experiment_name": Context["experiment_name"],
+        "target_name": Context["target_name"], "target_column": Context["target_column"],
+        "target_label_column": Context["target_label_column"], "group_column": Group,
+        "sample_unit": "recording", "split_unit": Group,
+        "polarity_scope": Context["spike_polarity_filter"]["polarity"],
+        "n_recordings": len(Recordings), "n_biological_units": Recordings[Group].nunique(),
+        "n_classes": Recordings["label_code"].nunique(),
+        "total_input_spikes": Recordings["n_input_spikes"].sum(),
+        "total_detector_selected_spikes": Recordings["n_after_label_filter"].sum(),
+        "total_plausible_selected_spikes": Recordings["n_after_waveform_filter"].sum(),
+        "total_training_sampled_spikes": Recordings["sampled_spikes"].sum(),
+        "class_mapping": {str(Key): str(Value) for Key, Value in Context["name_by_code"].items()},
+        "class_distribution": Counts.to_dict("records"), "selected_final_models": SelectedModels,
+        "feature_sets": Context["feature_sets"], "training_parameters": Context["training_parameters"],
+        "spike_polarity_filter": Context["spike_polarity_filter"],
+        "mamba_parameters": Context["mamba_parameters"],
+    }
+
+
+def ModelMetrics(ModelName, Metrics, Comparison):
+    """Collect cross-validation summary and fold metrics for one model."""
+    Summary = Comparison.set_index("model").loc[ModelName].to_dict()
+    return {"rank": int(Summary.get("rank", 0)), "cv_summary": Summary,
+            "cv_folds": Metrics[Metrics["model"] == ModelName].to_dict("records"),
+            "training_metrics": {"mean_cv_train_accuracy": Summary.get("mean_train_accuracy"), "mean_cv_train_balanced_accuracy": Summary.get("mean_train_balanced_accuracy")},
+            "test_metrics": {"mean_cv_test_accuracy": Summary.get("mean_test_accuracy"), "std_cv_test_accuracy": Summary.get("std_test_accuracy"), "mean_cv_test_balanced_accuracy": Summary.get("mean_test_balanced_accuracy"), "std_cv_test_balanced_accuracy": Summary.get("std_test_balanced_accuracy"), "n_cv_folds": Summary.get("n_folds")}}
+
+
+def RecordingManifest(Recordings, GroupColumn, TargetLabelColumn):
+    """Build the manifest of recordings used for final model training."""
+    Columns = ["recording_name", GroupColumn, TargetLabelColumn, "label_code", "label_normalized", "protocol", "div", "sampled_spikes", "n_active_channels", "firing_rate_hz"]
+    return Recordings[[Column for Column in Columns if Column in Recordings.columns]].to_dict("records")
+
+
+def ModelMetadata(ModelName, ModelType, ModelPath, FeatureSet, ClassifierName, FeatureColumns, EstimatorParameters, Recordings, Metrics, Comparison, Context):
+    """Build reusable-model metadata for a fitted classification model."""
+    return {
+        "model_id": ModelName, "model_name": ModelName, "model_type": ModelType,
+        "classifier": ClassifierName, "classifier_family": ModelFamily(ClassifierName),
+        "classifier_description": ModelTypeLabel(ClassifierName),
+        "framework": "PyTorch" if ModelType == "torch_state_dict" else "scikit-learn",
+        "model_path": str(ModelPath), "created_by_main": Context["created_by_main"],
+        "dataset": TrainingDatasetMetadata(Recordings, [ModelName], Context),
+        "training_recordings": RecordingManifest(Recordings, Context["group_column"], Context["target_label_column"]),
+        "feature_set": FeatureSet, "feature_columns": FeatureColumns, "n_features": len(FeatureColumns),
+        "estimator_parameters": EstimatorParameters, "preprocessing": Context["preprocessing"],
+        "validation": Context["validation"], "metrics": ModelMetrics(ModelName, Metrics, Comparison),
+        "reuse_notes": "Final reusable model fitted on all available labelled recordings after cross-validation. Reported test metrics are cross-validated held-out-fold metrics.",
+    }
+
+
+def PortalCatalogRecord(Metadata, ExperimentId, TargetName, GroupColumn):
+    """Convert model metadata into the external portal catalogue schema."""
+    Test = Metadata["metrics"]["test_metrics"]
+    return {"id": Metadata["model_id"], "name": Metadata["classifier_description"],
+            "version": f"Experiment {ExperimentId} research model", "status": "Research",
+            "classificationFamily": Metadata["classifier_family"], "modelType": Metadata["classifier_description"],
+            "purpose": f"Recording-level classification of {TargetName.replace('_', ' ')} from plausible negative MEA spikes.",
+            "framework": Metadata["framework"], "input": f"{Metadata['feature_set']} features extracted from processed spike folders",
+            "output": "Predicted experimental class with class probabilities when supported",
+            "validation": f"Repeated group-disjoint cross-validation by {GroupColumn}",
+            "metrics": [f"Balanced accuracy: {Test['mean_cv_test_balanced_accuracy']:.3f}", f"Accuracy: {Test['mean_cv_test_accuracy']:.3f}", f"CV folds: {int(Test['n_cv_folds'])}"],
+            "owner": "University of Genoa", "workPackage": "WP3", "license": "MIT", "access": "Restricted",
+            "repository": "https://github.com/cristinacampi/3D-BrAIn_codes", "downloadUrl": None,
+            "keywords": ["MEA", "classification", TargetName, Metadata["feature_set"], Metadata["classifier_family"]],
+            "limitations": "Research use only; no independent external validation."}
+
+
+def PredictClassicalRecordings(ModelPath, RecordingDirectories, LoaderArguments, RandomState=42):
+    """Apply a saved scikit-learn classifier bundle to recordings."""
+    Bundle = joblib.load(ModelPath)
+    Generator = np.random.default_rng(RandomState)
+    Rows = []
+    for Directory in RecordingDirectories:
+        Waveforms, Metadata = LoadRecordingWaveforms(Directory, Generator, **LoaderArguments)
+        Features = ClassicalFeatureRow(Metadata, Waveforms, Bundle)
+        Code = Bundle["model"].predict(Features.to_numpy())[0]
+        Row = dict(Metadata, model_path=str(ModelPath), model_name=Bundle.get("model_name", Path(ModelPath).stem),
+                   prediction_code=Code, prediction_label=LabelFromMapping(Bundle.get("name_by_code", {}), Code))
+        if hasattr(Bundle["model"], "predict_proba"):
+            for ClassCode, Probability in zip(Bundle["class_codes"], Bundle["model"].predict_proba(Features.to_numpy())[0]):
+                Row[f"probability_{LabelFromMapping(Bundle.get('name_by_code', {}), ClassCode)}"] = float(Probability)
+        Rows.append(Row)
+    return pd.DataFrame(Rows)
+
+
+def PredictMambaRecordings(ModelPath, RecordingDirectories, LoaderArguments, RandomState=42):
+    """Apply a saved Mamba checkpoint to recordings."""
+    Checkpoint = Mamba.torch.load(ModelPath, map_location="cpu", weights_only=False)
+    Model = Mamba.MEAMambaClassifier(**Checkpoint["model_config"])
+    Model.load_state_dict(Checkpoint["state_dict"])
+    Model.eval()
+    Generator = np.random.default_rng(RandomState)
+    Rows = []
+    for Directory in RecordingDirectories:
+        Waveforms, Metadata = LoadRecordingWaveforms(Directory, Generator, **LoaderArguments)
+        Sequence = MambaSequence(Waveforms)
+        if tuple(Sequence.shape) != tuple(Checkpoint["input_shape"]):
+            raise ValueError(f"{Path(Directory).name} has Mamba input shape {Sequence.shape}, expected {tuple(Checkpoint['input_shape'])}.")
+        Values = ((Sequence[np.newaxis] - Checkpoint["normalizer"]["mean"]) / Checkpoint["normalizer"]["std"]).astype(np.float32)
+        with Mamba.torch.no_grad():
+            Probabilities = Mamba.torch.softmax(Model(Mamba.torch.from_numpy(Values)), dim=1).numpy()[0]
+        Code = Checkpoint["classes"][int(np.argmax(Probabilities))]
+        Row = dict(Metadata, model_path=str(ModelPath), model_name="waveform_sequence_mamba",
+                   prediction_code=Code, prediction_label=LabelFromMapping(Checkpoint.get("name_by_code", {}), Code))
+        for ClassCode, Probability in zip(Checkpoint["classes"], Probabilities):
+            Row[f"probability_{LabelFromMapping(Checkpoint.get('name_by_code', {}), ClassCode)}"] = float(Probability)
+        Rows.append(Row)
+    return pd.DataFrame(Rows)
+
+
+def ProtocolFromFilename(Filename):
+    """Infer the pharmacological protocol encoded in a recording filename."""
+    Name = str(Filename).lower()
+    if "100um4ap_50umap5" in Name:
+        return "4ap_then_ap5"
+    if "50umap5_100um4ap" in Name:
+        return "ap5_then_4ap"
+    if "100um4ap" in Name:
+        return "4ap"
+    if "50umap5" in Name:
+        return "ap5"
+    return "spontaneous"
+
+
+def AsPath(path):
     """Return a Path object while accepting strings and Path-like inputs."""
     return Path(path).expanduser()
 
 
-def _flatten_feature(feature):
+def FlattenFeature(feature):
     """Convert one feature matrix/vector to a flat 1D numpy array."""
     return np.asarray(feature).reshape(-1)
 
 
-def _to_dense_array(value):
+def ToDenseArray(value):
     """Convert dense or scipy sparse array-like data to a numpy array."""
     if hasattr(value, "toarray"):
         return np.asarray(value.toarray())
     return np.asarray(value)
 
 
-def _require_sktime_rocket():
+def RequireSktimeRocket():
     """Import sktime MiniRocket classes only when ROCKET features are requested."""
     CacheDir = Path(tempfile.gettempdir()) / "numba_cache"
     os.environ.setdefault("NUMBA_CACHE_DIR", str(CacheDir))
 
-    try:
-        from sktime.transformations.panel.rocket import MiniRocket, MiniRocketMultivariate
-    except ImportError as Exc:
+    if MiniRocket is None or MiniRocketMultivariate is None:
         raise ImportError(
             "MiniRocket support requires sktime. Install it with `pip install sktime` "
             "or add sktime to the active environment."
-        ) from Exc
+        )
 
     return MiniRocket, MiniRocketMultivariate
 
 
-def _as_time_series_panel(X):
+def AsTimeSeriesPanel(X):
     """Convert time-series input to a sktime-compatible panel.
 
     Parameters
@@ -84,12 +519,12 @@ def _as_time_series_panel(X):
         If ``X`` cannot be interpreted as a panel of time series.
     """
     if isinstance(X, (list, tuple)):
-        X = np.stack([_to_dense_array(Item) for Item in X])
+        X = np.stack([ToDenseArray(Item) for Item in X])
     else:
-        X = _to_dense_array(X)
+        X = ToDenseArray(X)
 
     if X.dtype == object and X.ndim == 1:
-        X = np.stack([_to_dense_array(Item) for Item in X])
+        X = np.stack([ToDenseArray(Item) for Item in X])
 
     if X.ndim == 2:
         return X[:, np.newaxis, :]
@@ -139,7 +574,7 @@ def LoadFeaturePickles(file_loc, feature_column="Features"):
     pandas.DataFrame
         concatenated rows with ``Source_File`` and ``Source_Row`` columns.
     """
-    file_loc = _as_path(file_loc)
+    file_loc = AsPath(file_loc)
     Rows = []
 
     Paths = sorted(file_loc.glob("*.pkl")) + sorted(file_loc.glob("*.pickle"))
@@ -227,7 +662,7 @@ def BuildClassificationDataset(
             continue
 
         Feature = Row[feature_column]
-        Features.append(_flatten_feature(Feature) if flatten else np.asarray(Feature))
+        Features.append(FlattenFeature(Feature) if flatten else np.asarray(Feature))
         Labels.append(MatchedClass)
         Metadata.append(
             {
@@ -291,9 +726,9 @@ def ExtractMiniRocketFeatures(
         - ``extractors``: fitted MiniRocket extractor objects;
         - ``channel_slices``: channel blocks used for extraction.
     """
-    MiniRocket, MiniRocketMultivariate = _require_sktime_rocket()
-    X_train = _as_time_series_panel(X_train)
-    X_test = None if X_test is None else _as_time_series_panel(X_test)
+    MiniRocket, MiniRocketMultivariate = RequireSktimeRocket()
+    X_train = AsTimeSeriesPanel(X_train)
+    X_test = None if X_test is None else AsTimeSeriesPanel(X_test)
 
     if X_test is not None and X_train.shape[1:] != X_test.shape[1:]:
         raise ValueError("X_train and X_test must have the same channel/timepoint dimensions.")
@@ -400,7 +835,7 @@ def MiniRocketClassifierCV(
         metrics, confusion matrix, predictions, fitted models, scalers,
         and MiniRocket extractors for each fold.
     """
-    X = _as_time_series_panel(X)
+    X = AsTimeSeriesPanel(X)
     y = np.asarray(y)
     alphas = np.logspace(-3, 3, 10) if alphas is None else alphas
     Classes = np.unique(y)
@@ -613,7 +1048,7 @@ def PlotClassificationResults(results, save_loc=None, save_name="classification"
         whether to display plots interactively.
     """
     Metrics = results["metrics"]
-    save_loc = None if save_loc is None else _as_path(save_loc)
+    save_loc = None if save_loc is None else AsPath(save_loc)
     if save_loc is not None:
         save_loc.mkdir(parents=True, exist_ok=True)
 
@@ -779,7 +1214,7 @@ def Classifier(
     PlotClassificationResults(Results, save_loc=save_loc, save_name=save_name, show=show)
 
     if save_results:
-        save_loc = _as_path(save_loc)
+        save_loc = AsPath(save_loc)
         save_loc.mkdir(parents=True, exist_ok=True)
         ResultsDf = Results["metrics"].copy()
         ResultsDf["Train_Predictions"] = Results["train_predictions"]

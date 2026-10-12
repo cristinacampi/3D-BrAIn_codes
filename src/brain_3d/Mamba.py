@@ -29,22 +29,24 @@ from sklearn.decomposition import PCA
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
+import torch
+from torch import nn
+
+try:
+    from mamba_ssm import Mamba as OfficialMamba
+except ImportError:
+    OfficialMamba = None
 
 
-def _require_torch():
-    """Import PyTorch only when the Mamba module is requested."""
-    try:
-        import torch
-        from torch import nn
-    except ImportError as Exc:  # pragma: no cover - torch is a package dependency
-        raise ImportError("Mamba classification requires PyTorch.") from Exc
+def RequireTorch():
+    """Return the module-level PyTorch dependencies."""
     return torch, nn
 
 
-torch, nn = _require_torch()
+torch, nn = RequireTorch()
 
 
-def _as_panel(X):
+def AsPanel(X):
     """Convert MEA time-series input to a dense float32 panel.
 
     Parameters
@@ -76,6 +78,7 @@ class SelectiveSSM(nn.Module):
     """
 
     def __init__(self, d_model, d_state=16, expand=2):
+        """Initialize the SelectiveSSM instance."""
         super().__init__()
         self.d_inner = int(expand * d_model)
         self.d_state = d_state
@@ -120,19 +123,18 @@ class MambaBlock(nn.Module):
     """Pre-normalized residual Mamba block."""
 
     def __init__(self, d_model, d_state=16, expand=2, backend="reference"):
+        """Initialize the MambaBlock instance."""
         super().__init__()
         self.norm = nn.LayerNorm(d_model)
         if backend == "reference":
             self.mixer = SelectiveSSM(d_model, d_state=d_state, expand=expand)
         elif backend == "official":
-            try:
-                from mamba_ssm import Mamba
-            except ImportError as Exc:
+            if OfficialMamba is None:
                 raise ImportError(
                     "backend='official' requires mamba-ssm. Install the CUDA-compatible "
                     "package following https://github.com/state-spaces/mamba."
-                ) from Exc
-            self.mixer = Mamba(d_model=d_model, d_state=d_state, d_conv=4, expand=expand)
+                )
+            self.mixer = OfficialMamba(d_model=d_model, d_state=d_state, d_conv=4, expand=expand)
         else:
             raise ValueError("backend must be 'reference' or 'official'.")
 
@@ -168,6 +170,7 @@ class MEAMambaClassifier(nn.Module):
         self, n_channels, n_classes, d_model=64, n_layers=2, d_state=16,
         expand=2, dropout=0.1, backend="reference",
     ):
+        """Initialize the MEAMambaClassifier instance."""
         super().__init__()
         self.input_projection = nn.Linear(n_channels, d_model)
         self.blocks = nn.ModuleList([
@@ -189,7 +192,7 @@ class MEAMambaClassifier(nn.Module):
         return self.head(self.dropout(self.norm(X).mean(dim=1)))
 
 
-def _split_indices(Y, TestSize, Seed, Groups=None):
+def SplitIndices(Y, TestSize, Seed, Groups=None):
     """Create one stratified split, optionally keeping groups disjoint."""
     Indices = np.arange(len(Y))
     if Groups is None:
@@ -209,7 +212,7 @@ def _split_indices(Y, TestSize, Seed, Groups=None):
     raise ValueError("Could not create a group-disjoint split containing every class in train and test.")
 
 
-def _standardize_from_train(X_train, X_test):
+def StandardizeFromTrain(X_train, X_test):
     """Standardize panels using per-channel training statistics only."""
     Mean = X_train.mean(axis=(0, 2), keepdims=True)
     Std = X_train.std(axis=(0, 2), keepdims=True)
@@ -217,7 +220,7 @@ def _standardize_from_train(X_train, X_test):
     return (X_train - Mean) / Std, (X_test - Mean) / Std, Mean, Std
 
 
-def _predict(Model, X, BatchSize, Device, ReturnScores=False):
+def Predict(Model, X, BatchSize, Device, ReturnScores=False):
     """Predict labels or probabilities from a fitted PyTorch model."""
     Model.eval()
     Result = []
@@ -280,7 +283,7 @@ def MambaClassifierCV(
         Fold metrics, cumulative confusion matrix, predictions, fitted models,
         split indices, and training normalizers.
     """
-    X = _as_panel(X)
+    X = AsPanel(X)
     YRaw = np.asarray(y)
     if len(X) != len(YRaw):
         raise ValueError("X and y must contain the same number of samples.")
@@ -296,8 +299,8 @@ def MambaClassifierCV(
     for FoldIndex in range(n_splits):
         SplitSeed = int(Rng.integers(0, 2**31 - 1))
         torch.manual_seed(SplitSeed)
-        TrainIndices, TestIndices = _split_indices(YEncoded, test_size, SplitSeed, Groups=groups)
-        XTrain, XTest, Mean, Std = _standardize_from_train(X[TrainIndices], X[TestIndices])
+        TrainIndices, TestIndices = SplitIndices(YEncoded, test_size, SplitSeed, Groups=groups)
+        XTrain, XTest, Mean, Std = StandardizeFromTrain(X[TrainIndices], X[TestIndices])
         Model = MEAMambaClassifier(
             X.shape[1], len(Classes), d_model=d_model, n_layers=n_layers,
             d_state=d_state, expand=expand, dropout=dropout, backend=backend,
@@ -329,9 +332,9 @@ def MambaClassifierCV(
                 )
 
         TrainingSeconds = time.perf_counter() - Started
-        TrainPredictions = _predict(Model, XTrain, batch_size, Device)
+        TrainPredictions = Predict(Model, XTrain, batch_size, Device)
         InferenceStarted = time.perf_counter()
-        TestScores = _predict(Model, XTest, batch_size, Device, ReturnScores=True)
+        TestScores = Predict(Model, XTest, batch_size, Device, ReturnScores=True)
         InferenceSeconds = time.perf_counter() - InferenceStarted
         TestPredictions = TestScores.argmax(axis=1)
         CumulativeConfusionMatrix += confusion_matrix(
@@ -438,8 +441,8 @@ def MambaClassifierSplit(
         Predictions, probabilities, optional metrics, fitted model,
         normalizer, and execution times.
     """
-    XTrain = _as_panel(X_train)
-    XTest = _as_panel(X_test)
+    XTrain = AsPanel(X_train)
+    XTest = AsPanel(X_test)
     if XTrain.shape[1:] != XTest.shape[1:]:
         raise ValueError("X_train and X_test must have matching channel/timepoint dimensions.")
 
@@ -458,7 +461,7 @@ def MambaClassifierSplit(
     if YTestRaw is not None and not set(np.unique(YTestRaw)).issubset(ClassToIndex):
         raise ValueError("y_test contains a class that is absent from y_train.")
 
-    XTrain, XTest, Mean, Std = _standardize_from_train(XTrain, XTest)
+    XTrain, XTest, Mean, Std = StandardizeFromTrain(XTrain, XTest)
     Device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
     torch.manual_seed(random_state)
     Model = MEAMambaClassifier(
@@ -492,16 +495,16 @@ def MambaClassifierSplit(
             print(f"epoch={EpochIndex + 1} loss={np.mean(Losses):.5f}", flush=True)
     TrainingSeconds = time.perf_counter() - Started
 
-    TrainIndices = _predict(Model, XTrain, batch_size, Device)
+    TrainIndices = Predict(Model, XTrain, batch_size, Device)
     InferenceStarted = time.perf_counter()
-    TestScores = _predict(Model, XTest, batch_size, Device, ReturnScores=True)
+    TestScores = Predict(Model, XTest, batch_size, Device, ReturnScores=True)
     InferenceSeconds = time.perf_counter() - InferenceStarted
     TestIndices = TestScores.argmax(axis=1)
     TrainPredictions = Classes[TrainIndices]
     TestPredictions = Classes[TestIndices]
     Metrics = None
     if YTestRaw is not None:
-        Metrics = _comparison_metrics(YTestRaw, TestPredictions, TestScores)
+        Metrics = ComparisonMetrics(YTestRaw, TestPredictions, TestScores)
 
     return {
         "train_predictions": TrainPredictions,
@@ -517,7 +520,7 @@ def MambaClassifierSplit(
     }
 
 
-def _comparison_metrics(YTrue, YPredicted, Scores=None):
+def ComparisonMetrics(YTrue, YPredicted, Scores=None):
     """Compute the common metrics used by every benchmark classifier."""
     Classes = np.unique(YTrue)
     Average = "binary" if len(Classes) == 2 else "weighted"
@@ -555,7 +558,7 @@ def _comparison_metrics(YTrue, YPredicted, Scores=None):
     return Result
 
 
-def _model_scores(Model, X):
+def ModelScores(Model, X):
     """Return probability or decision scores when exposed by a classifier."""
     if hasattr(Model, "predict_proba"):
         return Model.predict_proba(X)
@@ -564,7 +567,7 @@ def _model_scores(Model, X):
     return None
 
 
-def _classical_models(random_state=0, pca_variance=0.90, n_estimators=300):
+def ClassicalModels(random_state=0, pca_variance=0.90, n_estimators=300):
     """Build fresh classical classifier instances for one benchmark fold."""
     return {
         "dummy_most_frequent": DummyClassifier(strategy="most_frequent"),
@@ -622,7 +625,7 @@ def CompareMambaToClassical(
         Fold metrics, ranked summary, sample predictions, cumulative confusion
         matrices, class labels, and the complete Mamba result.
     """
-    X = _as_panel(X)
+    X = AsPanel(X)
     Y = np.asarray(y)
     MambaResult = MambaClassifierCV(X, Y, groups=groups, **mamba_kwargs)
     Records, Predictions = [], []
@@ -632,7 +635,7 @@ def CompareMambaToClassical(
         TrainIndices, TestIndices = Split["train"], Split["test"]
         XTrain = X[TrainIndices].reshape(len(TrainIndices), -1)
         XTest = X[TestIndices].reshape(len(TestIndices), -1)
-        Models = _classical_models(RandomState + FoldIndex, pca_variance, n_estimators)
+        Models = ClassicalModels(RandomState + FoldIndex, pca_variance, n_estimators)
         for Name, Model in Models.items():
             Started = time.perf_counter()
             Model.fit(XTrain, Y[TrainIndices])
@@ -640,8 +643,8 @@ def CompareMambaToClassical(
             Started = time.perf_counter()
             Predicted = Model.predict(XTest)
             InferenceSeconds = time.perf_counter() - Started
-            Metrics = _comparison_metrics(
-                Y[TestIndices], Predicted, _model_scores(Model, XTest)
+            Metrics = ComparisonMetrics(
+                Y[TestIndices], Predicted, ModelScores(Model, XTest)
             )
             Records.append({"fold_index": FoldIndex, "model": Name, **Metrics,
                             "training_seconds": TrainingSeconds,
@@ -660,7 +663,7 @@ def CompareMambaToClassical(
             )
 
         MambaPredictions = MambaResult["test_predictions"][FoldIndex]
-        MambaMetrics = _comparison_metrics(
+        MambaMetrics = ComparisonMetrics(
             Y[TestIndices], MambaPredictions,
             MambaResult["test_prediction_scores"][FoldIndex],
         )

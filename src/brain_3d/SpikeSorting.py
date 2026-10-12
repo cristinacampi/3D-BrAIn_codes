@@ -2,6 +2,7 @@
 Codes with functions related to Spikes sorting
 """
 import numpy as np
+import h5py
 import matplotlib.pyplot as plt
 import pandas as pd
 import scipy
@@ -23,6 +24,252 @@ from concurrent.futures import ProcessPoolExecutor
 import psutil
 import os
 import gc
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass(frozen=True)
+class SpikePolarityFilterConfig:
+    """Configure detector-label and waveform-polarity event filtering.
+
+    Attributes
+    ----------
+    polarity : str
+        Event polarity to retain: ``"negative"``, ``"positive"``, or ``"none"``.
+    negative_spike_label : int
+        Detector label assigned to negative events.
+    positive_spike_label : int
+        Detector label assigned to positive events.
+    use_detector_label_filter : bool
+        Whether to filter events using detector labels when labels are available.
+    use_waveform_polarity_filter : bool
+        Whether to require the requested polarity to dominate the waveform.
+    polarity_dominance_ratio : float
+        Minimum ratio between the requested and opposite waveform extrema.
+    require_extremum_near_center : bool
+        Whether the dominant extremum must be close to the waveform centre.
+    center_window_samples : int
+        Maximum distance in samples between the extremum and waveform centre.
+    """
+
+    polarity: str = "negative"
+    negative_spike_label: int = 0
+    positive_spike_label: int = 1
+    use_detector_label_filter: bool = True
+    use_waveform_polarity_filter: bool = True
+    polarity_dominance_ratio: float = 1.10
+    require_extremum_near_center: bool = True
+    center_window_samples: int = 10
+
+
+@dataclass(frozen=True)
+class NegativeSpikeFilterConfig:
+    """Configure the legacy negative-waveform filtering interface.
+
+    Attributes use the same meanings as :class:`SpikePolarityFilterConfig`,
+    with polarity fixed to ``"negative"``. The class is retained for backward
+    compatibility with existing scripts and saved analysis configurations.
+    """
+
+    negative_spike_label: int = 0
+    use_detector_label_filter: bool = True
+    use_waveform_polarity_filter: bool = True
+    polarity_dominance_ratio: float = 1.10
+    require_extremum_near_center: bool = True
+    center_window_samples: int = 10
+
+
+def WaveformPolarityMask(Spikes, Labels=None, Config=None):
+    """Select events using detector labels and waveform polarity.
+
+    Parameters
+    ----------
+    Spikes : array-like
+        Two-dimensional waveform array with shape ``(events, samples)``.
+    Labels : array-like, optional
+        Detector labels for the events. Missing or entirely non-finite labels
+        leave detector-label filtering disabled for that recording.
+    Config : SpikePolarityFilterConfig, optional
+        Filtering configuration. Defaults to negative-polarity filtering.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask with one value per input event.
+
+    Raises
+    ------
+    ValueError
+        If the waveform shape, label count, polarity, or ratio is invalid.
+    """
+    Spikes = np.asarray(Spikes)
+    if Spikes.ndim != 2:
+        raise ValueError("Spikes must be a 2-D array of shape (events, samples).")
+    Config = Config or SpikePolarityFilterConfig()
+    Polarity = str(Config.polarity).strip().lower()
+    if Polarity not in {"negative", "positive", "none"}:
+        raise ValueError("Config.polarity must be 'negative', 'positive', or 'none'.")
+    if Config.polarity_dominance_ratio < 0:
+        raise ValueError("Config.polarity_dominance_ratio must be non-negative.")
+    if Labels is None:
+        Labels = np.full(Spikes.shape[0], np.nan)
+    Labels = np.asarray(Labels).reshape(-1)
+    if len(Labels) != len(Spikes):
+        raise ValueError("Spikes and Labels must contain the same number of events.")
+    Keep = np.ones(len(Spikes), dtype=bool)
+    if Config.use_detector_label_filter and Polarity != "none" and np.isfinite(Labels).any():
+        WantedLabel = Config.negative_spike_label if Polarity == "negative" else Config.positive_spike_label
+        Keep &= Labels == WantedLabel
+    if Config.use_waveform_polarity_filter and Polarity != "none" and len(Spikes):
+        WaveformMin = np.min(Spikes, axis=1)
+        WaveformMax = np.max(Spikes, axis=1)
+        Center = (Spikes.shape[1] - 1) / 2
+        if Polarity == "negative":
+            ExtremumIndex = np.argmin(Spikes, axis=1)
+            WaveformKeep = np.abs(WaveformMin) >= Config.polarity_dominance_ratio * np.abs(WaveformMax)
+        else:
+            ExtremumIndex = np.argmax(Spikes, axis=1)
+            WaveformKeep = np.abs(WaveformMax) >= Config.polarity_dominance_ratio * np.abs(WaveformMin)
+        if Config.require_extremum_near_center:
+            WaveformKeep &= np.abs(ExtremumIndex - Center) <= Config.center_window_samples
+        Keep &= WaveformKeep
+    return Keep
+
+
+def NegativeWaveformMask(Spikes, Labels=None, Config=None):
+    """Select plausible negative spike waveforms.
+
+    Parameters
+    ----------
+    Spikes : array-like
+        Two-dimensional waveform array with shape ``(events, samples)``.
+    Labels : array-like, optional
+        Detector labels associated with ``Spikes``.
+    Config : NegativeSpikeFilterConfig, optional
+        Legacy negative-polarity filtering configuration.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean mask selecting negative events.
+    """
+    LegacyConfig = Config or NegativeSpikeFilterConfig()
+    GenericConfig = SpikePolarityFilterConfig(
+        polarity="negative",
+        negative_spike_label=LegacyConfig.negative_spike_label,
+        use_detector_label_filter=LegacyConfig.use_detector_label_filter,
+        use_waveform_polarity_filter=LegacyConfig.use_waveform_polarity_filter,
+        polarity_dominance_ratio=LegacyConfig.polarity_dominance_ratio,
+        require_extremum_near_center=LegacyConfig.require_extremum_near_center,
+        center_window_samples=LegacyConfig.center_window_samples,
+    )
+    return WaveformPolarityMask(Spikes, Labels, GenericConfig)
+
+
+def ChannelFromPath(PathValue):
+    """Extract a numeric channel identifier from a processed-array path.
+
+    Parameters
+    ----------
+    PathValue : path-like
+        Path whose stem ends with a channel token such as ``ch42``.
+
+    Returns
+    -------
+    int or None
+        Parsed channel number, or ``None`` when the suffix is not numeric.
+    """
+    Stem = Path(PathValue).stem
+    try:
+        return int(Stem.split("ch")[-1])
+    except ValueError:
+        return None
+
+
+def LoadSpikeChannel(RecordingDirectory, Channel):
+    """Load event arrays for one processed channel.
+
+    Parameters
+    ----------
+    RecordingDirectory : path-like
+        Directory containing per-channel NumPy arrays.
+    Channel : int
+        Channel identifier used in the array filenames.
+
+    Returns
+    -------
+    tuple
+        ``(Spikes, Frames, Labels)`` arrays. Missing frame or label files are
+        represented by arrays of ``NaN`` values matching the event count.
+    """
+    RecordingDirectory = Path(RecordingDirectory)
+    Spikes = np.load(RecordingDirectory / f"spikes_ch{Channel}.npy")
+    FramePath = RecordingDirectory / f"frames_ch{Channel}.npy"
+    LabelPath = RecordingDirectory / f"label_ch{Channel}.npy"
+    Frames = np.load(FramePath).reshape(-1) if FramePath.exists() else np.full(Spikes.shape[0], np.nan)
+    Labels = np.load(LabelPath).reshape(-1) if LabelPath.exists() else np.full(Spikes.shape[0], np.nan)
+    return Spikes, Frames, Labels
+
+
+def LoadSpikeRecording(RecordingDirectory):
+    """Load every processed channel from one recording directory.
+
+    Parameters
+    ----------
+    RecordingDirectory : path-like
+        Directory containing ``spikes_ch*.npy`` and companion arrays.
+
+    Returns
+    -------
+    dict
+        Mapping from channel number to ``Spikes``, ``Frames``, and ``Labels``.
+    """
+    RecordingDirectory = Path(RecordingDirectory)
+    Result = {}
+    for SpikePath in sorted(RecordingDirectory.glob("spikes_ch*.npy")):
+        Channel = ChannelFromPath(SpikePath)
+        if Channel is not None:
+            Spikes, Frames, Labels = LoadSpikeChannel(RecordingDirectory, Channel)
+            Result[Channel] = {"Spikes": Spikes, "Frames": Frames, "Labels": Labels}
+    return Result
+
+
+def LoadSpikeFrames(RecordingDirectory, IncludeLabels=None):
+    """Load sorted event frames grouped by channel.
+
+    Parameters
+    ----------
+    RecordingDirectory : path-like
+        Directory containing ``frames_ch*.npy`` arrays.
+    IncludeLabels : iterable of int, optional
+        Detector labels to retain when companion label arrays exist.
+
+    Returns
+    -------
+    dict
+        Mapping from channel number to sorted integer frame indices.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the directory contains no channel frame arrays.
+    """
+    RecordingDirectory = Path(RecordingDirectory)
+    Result = {}
+    for FramePath in sorted(RecordingDirectory.glob("frames_ch*.npy")):
+        Channel = ChannelFromPath(FramePath)
+        if Channel is None:
+            continue
+        Frames = np.asarray(np.load(FramePath)).reshape(-1).astype(int)
+        LabelPath = RecordingDirectory / f"label_ch{Channel}.npy"
+        if IncludeLabels is not None and LabelPath.exists():
+            Labels = np.asarray(np.load(LabelPath)).reshape(-1).astype(int)
+            Length = min(len(Frames), len(Labels))
+            Frames = Frames[:Length][np.isin(Labels[:Length], list(IncludeLabels))]
+        Result[Channel] = np.sort(Frames)
+    if not Result:
+        raise FileNotFoundError(f"No frames_ch*.npy files found in {RecordingDirectory}.")
+    return Result
 
 def FindCorrelation(df, thresh=0.9, verbose=False):
     """
@@ -116,14 +363,211 @@ def FindCorrelation(df, thresh=0.9, verbose=False):
 
     return sorted(Col)
 
-def SpikesDetection(Data , step, threshold, aux_spike):
-    """
-    Spikes detection on negative peaks: we have a spike when the peak is lower than a threshold t = -mu-threshold*sigma (mu is the mean of the signal and sigma is the standard deviation)
+def ExtractWaveforms(Data, Frames, WindowSamples):
+    """Extract fixed-width waveforms centred on event frames.
+
+    Parameters
+    ----------
+    Data : array-like
+        One-dimensional signal trace.
+    Frames : array-like
+        Integer event-frame indices.
+    WindowSamples : int
+        Number of samples in each output waveform.
 
     Returns
     -------
-    frames : np.ndarray
-        list of frames indexes where a negative spike is detected.
+    numpy.ndarray
+        Waveforms with shape ``(len(Frames), WindowSamples)``. Samples beyond
+        the signal boundaries are zero-padded.
+    """
+    Data = np.asarray(Data)
+    Frames = np.asarray(Frames, dtype=int)
+    HalfWindow = WindowSamples // 2
+    Waveforms = np.zeros((len(Frames), WindowSamples), dtype=Data.dtype)
+    for Index, Frame in enumerate(Frames):
+        SourceStart = max(0, Frame - HalfWindow)
+        SourceEnd = min(len(Data), Frame + HalfWindow + 1)
+        DestinationStart = HalfWindow - (Frame - SourceStart)
+        DestinationEnd = DestinationStart + SourceEnd - SourceStart
+        Waveforms[Index, DestinationStart:DestinationEnd] = Data[SourceStart:SourceEnd]
+    return Waveforms
+
+
+def ResolveSpikePolarities(Data, NegativeFrames, PositiveFrames, HalfWindow):
+    """Resolve nearby detections with opposite polarities.
+
+    Parameters
+    ----------
+    Data : array-like
+        Filtered signal used to compare event amplitudes.
+    NegativeFrames : array-like
+        Candidate negative-event frame indices.
+    PositiveFrames : array-like
+        Candidate positive-event frame indices.
+    HalfWindow : int
+        Maximum frame distance for treating two detections as one event.
+
+    Returns
+    -------
+    tuple
+        Sorted integer arrays ``(NegativeFrames, PositiveFrames)`` after the
+        weaker member of each opposite-polarity pair has been removed.
+    """
+    Negative = set(int(Frame) for Frame in NegativeFrames)
+    Positive = []
+    for FrameP in PositiveFrames:
+        FrameP = int(FrameP)
+        Nearby = [Frame for Frame in Negative if abs(Frame - FrameP) <= HalfWindow]
+        if not Nearby:
+            Positive.append(FrameP)
+            continue
+        FrameN = min(Nearby, key=lambda Frame: abs(Frame - FrameP))
+        if np.abs(Data[FrameN]) < np.abs(Data[FrameP]):
+            Positive.append(FrameP)
+            Negative.discard(FrameN)
+    return np.asarray(sorted(Negative), dtype=int), np.asarray(sorted(Positive), dtype=int)
+
+
+def DetectSpikesInTrace(
+    Data,
+    SamplingRate,
+    NotchFrequency=50,
+    LowCut=300,
+    HighCut=3000,
+    WindowSamples=41,
+    DetectionThreshold=5,
+):
+    """Filter a trace and detect negative and positive events.
+
+    Parameters
+    ----------
+    Data : array-like
+        Raw one-dimensional channel trace.
+    SamplingRate : float
+        Sampling frequency in hertz.
+    NotchFrequency : float, optional
+        Frequency removed by the notch filter.
+    LowCut : float, optional
+        Lower band-pass cutoff in hertz.
+    HighCut : float, optional
+        Upper band-pass cutoff in hertz.
+    WindowSamples : int, optional
+        Samples extracted around each detected event.
+    DetectionThreshold : float, optional
+        Local standard-deviation multiplier used for peak detection.
+
+    Returns
+    -------
+    tuple
+        ``(Waveforms, Frames, Labels)`` where labels are zero for negative and
+        one for positive detections.
+    """
+    Trace = np.asarray(Data, dtype=float)
+    Trace = Trace - np.median(Trace)
+    Trace = brw_f.NotchFilter(Trace, NotchFrequency, SamplingRate)
+    Trace = brw_f.BandpassFilter(Trace, LowCut, HighCut, SamplingRate)
+    Trace = Trace - np.mean(Trace)
+
+    Step = int(SamplingRate * 0.05)
+    NegativeFrames = SpikesDetection(Trace, Step, DetectionThreshold, "neg")
+    PositiveFrames = SpikesDetection(Trace, Step, DetectionThreshold, "pos")
+    NegativeFrames, PositiveFrames = ResolveSpikePolarities(
+        Trace, NegativeFrames, PositiveFrames, WindowSamples // 2
+    )
+
+    NegativeWaveforms = ExtractWaveforms(Trace, NegativeFrames, WindowSamples)
+    PositiveWaveforms = ExtractWaveforms(Trace, PositiveFrames, WindowSamples)
+    Waveforms = np.concatenate([NegativeWaveforms, PositiveWaveforms], axis=0)
+    Frames = np.concatenate([NegativeFrames, PositiveFrames])
+    Labels = np.concatenate([
+        np.zeros(len(NegativeFrames), dtype=int),
+        np.ones(len(PositiveFrames), dtype=int),
+    ])
+    return Waveforms, Frames, Labels
+
+
+def ProcessH5Channel(
+    H5Path,
+    OutputDirectory,
+    WellID,
+    Channel,
+    ChannelRow,
+    NotchFrequency=50,
+    LowCut=300,
+    HighCut=3000,
+    WindowSamples=41,
+    DetectionThreshold=5,
+):
+    """Detect and save events from one HDF5 trace column.
+
+    Parameters
+    ----------
+    H5Path : path-like
+        Input HDF5 file containing the trace matrix.
+    OutputDirectory : path-like
+        Destination for waveform, frame, and label NumPy arrays.
+    WellID : str
+        HDF5 well-group identifier.
+    Channel : int
+        Physical channel number used in output filenames.
+    ChannelRow : int
+        Column index of the channel in the HDF5 trace matrix.
+    NotchFrequency : float, optional
+        Frequency removed by the notch filter.
+    LowCut : float, optional
+        Lower band-pass cutoff in hertz.
+    HighCut : float, optional
+        Upper band-pass cutoff in hertz.
+    WindowSamples : int, optional
+        Samples extracted around each event.
+    DetectionThreshold : float, optional
+        Local standard-deviation multiplier for event detection.
+
+    Returns
+    -------
+    None
+        Results are saved as ``spikes_ch*``, ``frames_ch*``, and ``label_ch*``.
+    """
+    with h5py.File(H5Path, "r") as File:
+        SamplingRate = float(File[WellID].attrs["SamplingRate"])
+        Trace = np.asarray(File[WellID]["Traces"][:, ChannelRow], dtype=float)
+
+    Waveforms, Frames, Labels = DetectSpikesInTrace(
+        Trace,
+        SamplingRate,
+        NotchFrequency=NotchFrequency,
+        LowCut=LowCut,
+        HighCut=HighCut,
+        WindowSamples=WindowSamples,
+        DetectionThreshold=DetectionThreshold,
+    )
+    OutputDirectory = os.fspath(OutputDirectory)
+    np.save(os.path.join(OutputDirectory, f"spikes_ch{Channel}.npy"), Waveforms)
+    np.save(os.path.join(OutputDirectory, f"frames_ch{Channel}.npy"), Frames)
+    np.save(os.path.join(OutputDirectory, f"label_ch{Channel}.npy"), Labels[:, np.newaxis])
+
+
+def SpikesDetection(Data , step, threshold, aux_spike):
+    """
+    Detect the strongest threshold-crossing peak in each signal block.
+
+    Parameters
+    ----------
+    Data : array-like
+        One-dimensional filtered signal.
+    step : int
+        Number of samples per local detection block.
+    threshold : float
+        Local standard-deviation multiplier used as the peak threshold.
+    aux_spike : str
+        ``"pos"`` detects positive peaks; every other value detects negative
+        peaks.
+
+    Returns
+    -------
+    list
+        Frame indices of the detected peaks.
     """
     Data =  Data[:Data .shape[0] - (Data .shape[0] % step)]
     DataReshaped = Data .reshape(-1, step)
@@ -378,7 +822,6 @@ def TemplateNeg(Data , ch, parameter = 4.5, algo = 'Leiden', distance = 'rho', m
     for Var in list(locals()):
         if Var != 'cluster' or Var != 'templates_N' or Var != 'frames_N':
             del locals()[Var]
-    import gc
     gc.collect()
 
 
@@ -449,7 +892,6 @@ def TemplateMatching(Data , templates, thresh = 0.95):
         for Var in list(locals()):
             if Var != 'frames' or Var != 'Data ' or Var != 'Data set' or Var !='DatasetIdx':
                 del locals()[Var]
-        import gc
         gc.collect()
 
         return Frames, Data , Dataset, DatasetIdx
@@ -551,7 +993,6 @@ def ChannelSpksort(ch):
     for Var in list(locals()):
         if Var != 'chs' or Var != 'idx_ch':
             del locals()[Var]
-    import gc
     gc.collect()
 
     return Chs, IdxCh
@@ -589,7 +1030,6 @@ def LinkChsSpksort(results):
     for Var in list(locals()):
         if Var != 'common_neuron':
             del locals()[Var]
-    import gc
     gc.collect()
 
     return CommonNeuron

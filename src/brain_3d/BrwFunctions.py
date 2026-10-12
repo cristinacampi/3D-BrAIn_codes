@@ -15,6 +15,89 @@ from scipy.signal import find_peaks, butter, filtfilt, wiener, iirnotch
 from statistics import median
 import plotly.express as px
 import json
+import pickle
+from pathlib import Path
+
+
+def ExportH5Channel(H5Path, WellID, ChannelRow, OutputPath, OutputDType=None):
+    """Export one HDF5 trace column to a NumPy file."""
+    with h5py.File(H5Path, "r") as File:
+        Trace = File[WellID]["Traces"][:, ChannelRow]
+        Trace = np.asarray(Trace if OutputDType is None else Trace.astype(OutputDType))
+    np.save(OutputPath, Trace)
+    return OutputPath
+
+
+def ReadRecordingMetadata(H5Path, BrwPath, WellID):
+    """Read sampling rate, channel count, and frame count from HDF5 or BRW."""
+    if Path(H5Path).exists():
+        with h5py.File(H5Path, "r") as File:
+            Well = File[WellID]
+            return float(Well.attrs["SamplingRate"]), len(Well["ChannelIndices"]), int(Well.attrs["NumFrames"])
+    if not Path(BrwPath).exists():
+        raise FileNotFoundError(f"Missing metadata source: {H5Path} and {BrwPath}")
+    File, SamplingRate, NumChannels, _, NumFrames = ReadBRW(str(BrwPath), WellID)
+    File.close()
+    return SamplingRate, NumChannels, NumFrames
+
+
+def SplitChannelSpikes(SpikeDirectory, Channel, WindowSamples=41):
+    """Split one channel's frames and waveforms by detector polarity label."""
+    SpikeDirectory = Path(SpikeDirectory)
+    Paths = [SpikeDirectory / f"{Prefix}_ch{Channel}.npy" for Prefix in ("spikes", "frames", "label")]
+    if not all(PathValue.exists() for PathValue in Paths):
+        EmptyFrames = np.array([], dtype=int)
+        EmptyWaveforms = np.zeros((0, WindowSamples))
+        return EmptyFrames, EmptyFrames, EmptyWaveforms, EmptyWaveforms
+    Dataset, Frames, Labels = np.load(Paths[0]), np.load(Paths[1]).astype(int), np.load(Paths[2]).reshape(-1).astype(int)
+    return Frames[Labels == 0], Frames[Labels == 1], Dataset[Labels == 0], Dataset[Labels == 1]
+
+
+def SaveSpikeBurstMetrics(
+    SaveDirectory, RecordingName, Channels, SamplingRate, NumFrames,
+    SpikesN, SpikesP, DatasetN, DatasetP, ActiveThreshold,
+    MinimumBurstSpikes, MaximumBurstIsi, SpikeMetricNames, BurstMetricNames,
+):
+    """Compute and save channel- and well-level spike and burst metrics."""
+    SaveDirectory = Path(SaveDirectory)
+    SaveDirectory.mkdir(parents=True, exist_ok=True)
+    SpikeMetric = dict(zip(SpikeMetricNames, SpikesMetric(
+        SamplingRate=SamplingRate, NumFrames=NumFrames, SpikesN=SpikesN,
+        SpikesP=SpikesP, DatasetN=DatasetN, DatasetP=DatasetP, Threshold=ActiveThreshold,
+    )))
+    BurstMetric = dict(zip(BurstMetricNames, BurstsMetric(
+        SamplingRate=SamplingRate, NumFrames=NumFrames, SpikesN=SpikesN, SpikesP=SpikesP,
+        SpikesFramesAE=SpikeMetric["SpikesFramesAE"], SpikesCount=SpikeMetric["SpikesCount"],
+        NSpikesWell=SpikeMetric["NSpikesWell"], ActiveElectrodesID=SpikeMetric["ActiveElectrodesID"],
+        NMinSpikes=MinimumBurstSpikes, ISIMaxSeconds=MaximumBurstIsi,
+    )))
+    RawCount = np.asarray([len(set(Negative) | set(Positive)) for Negative, Positive in zip(SpikesN, SpikesP)])
+    RawRate = RawCount / NumFrames * SamplingRate
+    ChannelMetrics = pd.DataFrame({
+        "Channel": Channels, "RawSpikesCount": RawCount, "RawSpikesRate": RawRate,
+        "IsActiveElectrode": RawRate >= ActiveThreshold,
+        **{Name: SpikeMetric[Name] for Name in ("SpikesCount", "SpikesRate", "ISIMap", "ISIVarianceMap", "PeakToPeakMap", "PeakToPeakStd")},
+        **{Name: BurstMetric[Name] for Name in ("NBursts", "BurstsRate", "BurstsSpikesPercentage", "BurstsISIAverage", "BurstsNSpikesAverage", "BurstsDurationAverage", "IBIAverage", "IBIStd")},
+    })
+    WellNames = (
+        "ActiveElectrodesNumber", "NSpikesWell", "SpikesWellRate", "ISIWellAverage",
+        "ISIVarianceWell", "PeakToPeakAverageWell", "PeakToPeakStdWell",
+    )
+    BurstWellNames = (
+        "NBurstsWell", "BurstsRateWell", "BurstsDurationWellAverage", "BurstsDurationWellStd",
+        "IBIWellAverage", "IBIWellStd", "BurstsNSpikesWellAverage", "BurstsNSpikesWellStd",
+        "BurstsISIWellAverage", "BurstsISIWellStd", "BurstsSpikesPercentageWell",
+    )
+    Row = {"RecordingName": RecordingName, "SamplingRate": SamplingRate, "NumFrames": NumFrames}
+    Row.update({Name: SpikeMetric[Name] for Name in WellNames})
+    Row.update({Name: BurstMetric[Name] for Name in BurstWellNames})
+    Row["ActiveElectrodesID"] = " ".join(map(str, SpikeMetric["ActiveElectrodesID"]))
+    WellMetrics = pd.DataFrame([Row])
+    ChannelMetrics.to_csv(SaveDirectory / "channel_spike_burst_metrics.csv", index=False)
+    WellMetrics.to_csv(SaveDirectory / "well_spike_burst_metrics.csv", index=False)
+    with open(SaveDirectory / "full_spike_burst_metrics.pkl", "wb") as File:
+        pickle.dump({"spike_metrics": SpikeMetric, "burst_metrics": BurstMetric}, File)
+    return WellMetrics, ChannelMetrics
 
 def ReadBRW(Filename, WellID):
     """
@@ -123,7 +206,7 @@ def DecodeEventBasedRawData(BRW, Data, WellID, StartTime=0, Duration=0.05):
                 if J >= EndFrame:
                     break
                 if J >= StartFrame:
-                    data[ChIdx][J - StartFrame] = int.from_bytes(BinaryData[RangeDataPos:RangeDataPos + 2], byteorder='little', signed=True)
+                    Data[ChIdx][J - StartFrame] = int.from_bytes(BinaryData[RangeDataPos:RangeDataPos + 2], byteorder='little', signed=True)
 
                 RangeDataPos += 2
             Pos += (ToExclusive - FromInclusive) * 2
@@ -199,7 +282,11 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
     NCh = len(ChIdxs)#
     NumChannels = ChIdxs.shape[0]
 
-    if 'EventsBasedSparseRawTOC' in BRW[WellID]:
+    Well = BRW[WellID]
+    HasEventsToc = 'EventsBasedSparseRawTOC' in Well
+    HasEventsData = 'EventsBasedSparseRaw' in Well
+
+    if HasEventsToc and HasEventsData:
         DataDict = {}
         for ChIdx in ChIdxs:
             DataDict[ChIdx] = np.zeros(EndFrame-StartFrame, dtype=np.int16)
@@ -209,13 +296,23 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
         for D in range(NCh):
             Data[:, D] = np.array(DataDict[ChIdxs[D]], dtype=float)
 
+    elif HasEventsToc or HasEventsData:
+        MissingDataset = (
+            'EventsBasedSparseRaw'
+            if HasEventsToc
+            else 'EventsBasedSparseRawTOC'
+        )
+        raise ValueError(
+            f"Incomplete event-based BRW data in well {WellID!r}: "
+            f"missing dataset {MissingDataset!r}."
+        )
 
-    elif 'Raw' in BRW[WellID]:
+    elif 'Raw' in Well:
         AuxData = BRW[WellID + '/Raw']
         AuxData = AuxData[StartFrame*NumChannels:EndFrame*NumChannels]
         Data = np.reshape(AuxData, (EndFrame-StartFrame, NumChannels))
 
-    elif 'WaveletBasedEncodedRaw' in BRW[WellID]:
+    elif 'WaveletBasedEncodedRaw' in Well:
         CoefsTotalLength = len(BRW[WellID + '/WaveletBasedEncodedRaw'])
         CompressionLevel = BRW[WellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
         FramesChunkLength = BRW[WellID + '/WaveletBasedEncodedRaw'].attrs['CompressionLevel']
@@ -236,6 +333,16 @@ def ReadingRawData(BRW, WellID, DownsamplingFrequency, StartTime = 0, Duration =
                 CoefsPosition += CoefsChunkLength * NumChannels
             print(time.time()-T)
         BRW.close()
+
+    else:
+        AvailableDatasets = ', '.join(sorted(Well.keys())) or '<none>'
+        raise ValueError(
+            f"Unsupported BRW raw-data format in well {WellID!r}. "
+            "Expected event-based datasets "
+            "('EventsBasedSparseRawTOC' and 'EventsBasedSparseRaw'), "
+            "'Raw', or 'WaveletBasedEncodedRaw'. "
+            f"Available datasets: {AvailableDatasets}."
+        )
 
     Step = int(SamplingRate/DownsamplingFrequency)
 
@@ -810,7 +917,6 @@ def SpikesMetric(SamplingRate, NumFrames, SpikesN, SpikesP, DatasetN, DatasetP, 
         PeakToPeakAverageWell,
         PeakToPeakStdWell,
     )
-
 
 def BurstsMetric(
     SamplingRate,
