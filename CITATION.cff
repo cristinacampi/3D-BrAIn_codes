@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use 3D-BrAIn in your research, please cite the software and the relevant methodological publications."
+title: "3D-BrAIn: analysis tools for high-density 3Brain MEA recordings"
+type: software
+version: 1.0.0
+date-released: 2026-09-10
+authors:
+  - family-names: Campi
+    given-names: Cristina
+    email: cristina.campi@unige.it
+repository-code: "https://github.com/cristinacampi/3D-BrAIn_codes"
+url: "https://cristinacampi.github.io/3D-BrAIn_codes/"
+license: MIT
+keywords:
+  - microelectrode array
+  - MEA
+  - electrophysiology
+  - spike sorting
+  - clustering
+  - classification
+  - functional connectivity

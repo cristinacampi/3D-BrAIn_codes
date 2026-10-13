@@ -1,0 +1,738 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=23mm,headheight=24pt]{geometry}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{microtype}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{bookmark}
+
+\definecolor{Navy}{HTML}{17324D}
+\definecolor{Teal}{HTML}{087E8B}
+\definecolor{Coral}{HTML}{D65A4A}
+\definecolor{Pale}{HTML}{EDF4F5}
+\definecolor{Ink}{HTML}{20262D}
+\definecolor{SoftGray}{HTML}{F3F5F6}
+\definecolor{RuleGray}{HTML}{CBD2D7}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=Navy,
+  urlcolor=Teal,
+  citecolor=Teal,
+  pdftitle={3D-BrAIn User and Scientific Manual},
+  pdfauthor={Cristina Campi},
+  pdfsubject={High-density 3Brain MEA data analysis}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textcolor{Navy}{3D-BrAIn}}
+\rhead{\textcolor{Navy}{User and Scientific Manual}}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{Teal}\leaders\hrule height \headrulewidth\hfill}}
+
+\titleformat{\section}{\Large\bfseries\color{Navy}}{\thesection}{0.7em}{}
+\titleformat{\subsection}{\large\bfseries\color{Teal}}{\thesubsection}{0.7em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{Ink}}{\thesubsubsection}{0.7em}{}
+\setlist{nosep,leftmargin=6mm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\setlength{\emergencystretch}{2em}
+\renewcommand{\arraystretch}{1.2}
+
+\lstdefinestyle{terminal}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{SoftGray},
+  frame=single,
+  rulecolor=\color{RuleGray},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=2mm,
+  xrightmargin=2mm,
+  aboveskip=7pt,
+  belowskip=7pt
+}
+\lstset{style=terminal}
+
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\note}[1]{%
+  \begin{center}
+  \fcolorbox{Teal}{Pale}{\begin{minipage}{0.92\linewidth}\textbf{Method note.} #1\end{minipage}}
+  \end{center}
+}
+\newcommand{\warningbox}[1]{%
+  \begin{center}
+  \fcolorbox{Coral}{SoftGray}{\begin{minipage}{0.92\linewidth}\textbf{Quality-control warning.} #1\end{minipage}}
+  \end{center}
+}
+
+\begin{document}
+
+\hypersetup{pageanchor=false}
+\begin{titlepage}
+  \pagecolor{Navy}
+  \color{white}
+  \vspace*{22mm}
+  {\Huge\bfseries 3D-BrAIn\par}
+  \vspace{5mm}
+  {\LARGE User and Scientific Manual\par}
+  \vspace{7mm}
+  {\large Reproducible analysis of high-density 3Brain MEA recordings\par}
+  \vfill
+  \begin{tabular}{@{}ll@{}}
+    Software version & 1.0.0 \\
+    Manual edition & 10 September 2026 \\
+    Author & Cristina Campi \\
+    Repository & \href{https://github.com/cristinacampi/3D-BrAIn_codes}{github.com/cristinacampi/3D-BrAIn\_codes} \\
+    License & MIT \\
+  \end{tabular}
+  \vspace{16mm}
+
+  {\small Research software. Not a clinical or diagnostic device.}
+\end{titlepage}
+\nopagecolor
+\color{Ink}
+\hypersetup{pageanchor=true}
+\pagenumbering{roman}
+
+\section*{Document Purpose}
+
+This manual is the publication-oriented reference for 3D-BrAIn. It combines a
+user guide, computational methods description, output dictionary, model-reuse
+guide, and reproducibility checklist. It describes the current public command
+line programs and their default settings. Dataset-specific reports should add
+the actual recording counts, biological units, DIV values, conditions, retained
+channels, retained spikes, and measured results.
+
+\warningbox{Defaults are conveniences, not acquisition metadata. Confirm the
+sampling rate, duration, well, grid convention, reference channel, voltage
+scale, and labels for every dataset.}
+
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+\section{Software Scope and Architecture}
+
+3D-BrAIn is a Python toolkit for high-density microelectrode-array data from
+3Brain systems. It supports raw file access, signal extraction, event detection,
+spike and burst metrics, waveform stratification, recording-level supervised
+learning, functional connectivity, and reusable research models.
+
+The project deliberately separates orchestration from scientific logic:
+
+\begin{longtable}{>{\ttfamily}p{0.22\linewidth}p{0.70\linewidth}}
+\toprule
+Location & Responsibility \\
+\midrule
+main/ & Configurable analysis programs containing orchestration and editable parameters. \\
+src/brain\_3d/ & Scientific functions, preprocessing, models, figures, metrics, and output generation. \\
+tests/ & Deterministic tests for API conventions, preprocessing, connectivity, Mamba, and configurable scripts. \\
+docs/ & GitHub guides, Sphinx API documentation, methods, and printable source. \\
+tools/ & Report repair/building and model-portal integration utilities. \\
+\bottomrule
+\end{longtable}
+
+Public scientific modules include \code{BrwFunctions}, \code{BxrFunctions},
+\code{SpikeSorting}, \code{Stratification},
+\code{Classification}, \code{Regression}, \code{Connectivity}, and
+\code{Mamba}. Public functions and classes use the project's PascalCase
+convention throughout the scientific modules.
+
+\section{Installation}
+
+Python 3.8 or newer is required. An isolated environment is recommended.
+
+\begin{lstlisting}
+git clone https://github.com/cristinacampi/3D-BrAIn_codes.git
+cd 3D-BrAIn_codes
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install -e .
+\end{lstlisting}
+
+Install development and documentation dependencies with:
+
+\begin{lstlisting}
+python3 -m pip install -e ".[dev]"
+python3 -m pytest -q
+\end{lstlisting}
+
+The repository also provides \code{environment.yml}, \code{Dockerfile}, and
+\code{docker-compose.yml}. GPU acceleration depends on a PyTorch build that is
+compatible with the local CUDA environment. The official \code{mamba-ssm}
+backend is optional and must be installed separately on a compatible platform;
+the default reference implementation uses standard PyTorch operations.
+
+\section{Input Data Contracts}
+
+\subsection{Raw BRW data}
+
+Trace extraction expects a directory containing one or more BRW recordings.
+The default well is \code{Well\_A1}. Sampling rate, frame count, and channel
+metadata are read from the raw recording and stored with extracted HDF5 traces.
+
+\subsection{Processed spike arrays}
+
+Each immediate subdirectory of a spike root represents one recording. Matched
+files are expected for each channel \(c\):
+
+\begin{longtable}{>{\ttfamily}p{0.28\linewidth}p{0.22\linewidth}p{0.42\linewidth}}
+\toprule
+File & Shape & Meaning \\
+\midrule
+spikes\_ch\(c\).npy & events \(\times\) samples & Waveform around each detected event. \\
+frames\_ch\(c\).npy & events & Detection frame for each event. \\
+label\_ch\(c\).npy & events & Detector polarity: 0 negative, 1 positive. \\
+\bottomrule
+\end{longtable}
+
+When matched arrays differ in length, analysis uses their shortest common event
+count. This protects indexing but signals an upstream data-integrity problem
+that should be corrected or reported. Mamba recording sequences additionally
+require equal waveform length across recordings.
+
+Channel 0 is excluded as the reference by negative-waveform workflows. On a
+64 by 64 grid, 4095 channels remain before activity and waveform filters. The
+default zero-based mapping is
+\[
+  r = \lfloor c/64 \rfloor, \qquad q = c \bmod 64.
+\]
+Verify this convention against acquisition metadata before interpreting sensor
+maps.
+
+\subsection{Labels table}
+
+Supervised analyses expect one CSV row per recording. Recording matching is
+case-insensitive after stripping whitespace and a terminal \code{.brw}
+extension.
+
+\begin{longtable}{>{\ttfamily}p{0.26\linewidth}p{0.64\linewidth}}
+\toprule
+Column & Purpose \\
+\midrule
+filename & Recording file or recording-folder name. \\
+biological\_unit\_id & Organoid, culture, subject, or other unit that must never cross validation folds. \\
+chip\_ID & Chip identifier retained in analysis metadata. \\
+DIV & Numeric days in vitro; continuous target for regression. \\
+Days\_in\_BF & Experimental metadata retained by current supervised pipelines. \\
+culture\_phase\_code & Numeric class code for the built-in culture-phase task. \\
+culture\_phase & Human-readable culture-phase label. \\
+div\_code, div\_label & Optional discrete DIV class and readable label. \\
+experiment\_id & Required only when the labels table is filtered by experiment. \\
+\bottomrule
+\end{longtable}
+
+Repeated measurements from the same organoid must carry the same
+\code{biological\_unit\_id}. Otherwise, information from one organoid can leak
+between training and test folds.
+
+\section{End-to-End Workflow}
+
+\subsection{Trace extraction}
+
+\begin{lstlisting}
+python3 main/main_extract_traces_h5.py
+\end{lstlisting}
+
+Edit the parameter block before running. The program exports chunked HDF5
+traces. Restrict the channel range with the configured start and end values.
+Existing complete extractions are skipped unless recomputation is enabled.
+
+\subsection{Spike detection}
+
+\begin{lstlisting}
+python3 main/main_detect_spikes_from_h5.py
+\end{lstlisting}
+
+The waveform length must be odd so the event can be centred. Default filter and
+detection settings must be reported and should be validated against voltage
+units, noise, sampling rate, and expected extracellular waveform duration.
+
+\subsection{Metrics}
+
+\begin{lstlisting}
+python3 main/main_compute_spike_burst_metrics.py
+\end{lstlisting}
+
+Set the activity threshold to 0.25 Hz in the parameter block to align it with
+the negative-waveform analyses. The metric output root is also configured in
+the same block.
+
+\subsection{Analysis branches}
+
+After spike extraction, the same processed folder can feed four complementary
+branches:
+
+\begin{enumerate}
+  \item unsupervised waveform stratification;
+  \item recording-level classification;
+  \item recording-level continuous DIV regression;
+  \item functional connectivity from spike times.
+\end{enumerate}
+
+All four negative-spike branches use the shared event selection described next.
+
+\section{Shared Plausible-Negative Filter}
+
+For waveform matrix \(X\), event \(i\) is retained when the following active
+criteria are satisfied:
+
+\begin{enumerate}
+  \item detector label \(y_i=0\), when finite labels are available;
+  \item \(\lvert\min X_i\rvert \geq 1.10\lvert\max X_i\rvert\);
+  \item the trough index lies within 10 samples of the waveform centre.
+\end{enumerate}
+
+The detector-label check is skipped if no finite labels are available, but the
+waveform checks remain active. These rules reject positive-dominant and poorly
+centred events. They are operational plausibility criteria, not proof that an
+event originates from a neuron or a universal definition of extracellular spike
+polarity.
+
+After event filtering, channel activity is
+\[
+  f_c = \frac{N_c}{T},
+\]
+where \(N_c\) is the retained event count and \(T\) is recording duration in
+seconds. A channel is active when \(f_c > 0.25\) Hz by default. The strict
+inequality means a channel exactly at 0.25 Hz is excluded.
+
+\note{Every publication should report input events, detector-negative events,
+waveform-plausible events, active channels, and events finally sampled. These
+counts distinguish biological sparsity from filtering or file-coverage effects.}
+
+\section{Spike and Burst Metrics}
+
+Per-channel and well-level spike outputs include event count and rate, mean ISI,
+ISI variability, peak-to-peak amplitude, and active-electrode summaries.
+
+A burst is a maximal sequence with at least \(N_{\min}=5\) spikes and
+consecutive inter-spike intervals no greater than
+\(\mathrm{ISI}_{\max}=0.1\) s. After the initial five-spike condition is met,
+the sequence extends while the interval condition remains true. Reported burst
+quantities include:
+
+\begin{itemize}
+  \item count and bursts per minute;
+  \item mean duration and spikes per burst;
+  \item mean within-burst ISI;
+  \item inter-burst interval (IBI) and variability;
+  \item percentage of spikes assigned to bursts.
+\end{itemize}
+
+The same algorithm is also applied to the pooled active-electrode event sequence
+to produce well-level burst summaries. This is distinct from a network burst.
+The API function \code{NetworkBurstMetric} in \code{BrwFunctions} identifies windows in
+which bursts occur on a specified fraction of active electrodes, but the public
+metrics main does not currently call it. Network-burst results must not be
+reported unless that function is run explicitly with documented parameters.
+
+\section{Waveform Stratification}
+
+\subsection{Scope and sampling}
+
+The pipeline produces independent clustering for each recording and a
+transversal clustering pooled across recordings belonging to one experiment.
+An experiment token of the form \code{NN-NN} is inferred from each spike-root
+path. Roots without such a token are grouped as \code{unknown\_experiment}.
+
+At most 15,000 filtered waveforms are selected per recording with seeded random
+sampling. The transversal pool is capped at 150,000 events per experiment.
+Sampling equalises computational load but does not force equal contribution by
+recording. Contribution counts and proportions must therefore be inspected.
+
+\subsection{PCA and k-means}
+
+Waveforms are whitened and passed to \code{Stratification.Clustering} with
+\code{Algo=PCA\&KM}, Euclidean distance, and Minkowski \(p=2\). PCA retains the
+smallest component count \(m\) satisfying
+\[
+  \frac{\sum_{j=1}^{m}\lambda_j}{\sum_{j=1}^{d}\lambda_j} \geq 0.90,
+\]
+where \(\lambda_j\) is the variance explained by component \(j\). K-means is
+evaluated for candidate counts 2, 3, 4, 5, and 6 by default.
+
+The saved PC1--PC2 scatterplot is only a two-dimensional display. Clustering
+uses the retained component space, which can contain more than two components.
+
+\subsection{Interpretation}
+
+Centroid plots show the cluster mean and a shaded pointwise interval of one
+standard deviation. The channel count map shows where sampled events originate.
+For every cluster \(k\), the local map reports
+\[
+  100\frac{N_{c,k}}{N_c},
+\]
+the percentage of analysed waveforms on channel \(c\) assigned to cluster
+\(k\). The transversal recording profile analogously reports cluster
+proportions within each recording.
+
+Cluster IDs are nominal, run-specific labels. They do not imply order or direct
+correspondence across separately fitted clusterings. Biological interpretation
+requires waveform quality control, stability analysis, spatial context, and
+association with independent experimental variables.
+
+\section{Recording-Level Classification}
+
+\subsection{Statistical unit and features}
+
+One recording is one supervised-learning sample. Individual spikes are not
+independent rows in the classifier. Each recording can be represented by:
+
+\begin{itemize}
+  \item activity features: counts through filters, total retained events,
+  duration, firing rate, numbers of active/non-empty channels, channel count
+  summaries, and channel entropy;
+  \item scalar waveform summaries: mean, standard deviation, minimum, maximum,
+  peak-to-peak range, and mean squared energy;
+  \item MiniRocket features learned from waveform sequences;
+  \item a five-channel aggregate waveform sequence for Mamba.
+\end{itemize}
+
+MiniRocket is fitted on at most 12,000 waveforms from the training fold. With
+10,000 kernels, each waveform produces 10,000 responses. Responses are
+aggregated within a recording by feature-wise mean and standard deviation,
+giving 20,000 recording variables before any activity or scalar waveform
+features are concatenated.
+
+For Mamba, each recording becomes a sequence with five pointwise profiles:
+waveform mean, standard deviation, median, 25th percentile, and 75th percentile.
+This preserves the waveform time axis while controlling the number of supervised
+samples.
+
+\subsection{Algorithms}
+
+The classical comparison includes:
+
+\begin{itemize}
+  \item most-frequent dummy baseline;
+  \item ridge classifier with PCA;
+  \item class-balanced logistic regression with PCA;
+  \item class-balanced linear and radial-basis SVM with PCA;
+  \item class-balanced random forest;
+  \item class-balanced Extra Trees.
+\end{itemize}
+
+PCA pipelines standardise variables and retain 90\% explained variance. Forest
+models use 300 trees by default. The optional Mamba model is a selective
+state-space sequence model trained for 30 epochs by default.
+
+\subsection{Cross-validation and leakage control}
+
+The default validation uses four-fold \code{StratifiedGroupKFold}, repeated
+three times with repeat-specific seeds. Class codes provide stratification and
+\code{biological\_unit\_id} defines groups. No biological unit can occur in
+both training and test sets within a fold. MiniRocket, scaling, PCA, and the
+estimator are fitted using training-fold data only.
+
+For \(K\) classes, balanced accuracy is macro-average recall:
+\[
+  \mathrm{BA}=\frac{1}{K}\sum_{k=1}^{K}
+  \frac{\mathrm{TP}_k}{\mathrm{TP}_k+\mathrm{FN}_k}.
+\]
+It gives each class equal weight irrespective of prevalence. Accuracy,
+per-class recall and precision, F1, support, confusion matrices, and train-test
+differences should be interpreted alongside it.
+
+\warningbox{Files and tables may call held-out folds ``test``. These are
+cross-validation test folds, not an independent external test cohort. External
+validation must use a new labelled dataset that did not affect model choice or
+parameter selection.}
+
+\section{Continuous DIV Regression}
+
+DIV regression uses the same recording unit, event filter, activity features,
+waveform summaries, and MiniRocket aggregation as classification. It predicts
+numeric DIV rather than a categorical DIV label.
+
+Models are a mean dummy baseline, ridge, Elastic Net, linear and radial-basis
+support-vector regression, random forest, and Extra Trees. PCA models retain
+90\% explained variance. DIV is discretised into up to four quantile bins only
+for balanced grouped fold construction; predictions and scores use the original
+continuous values. If stratified grouped splitting is infeasible, the pipeline
+uses \code{GroupKFold}.
+
+Reported metrics include MAE, median absolute error, RMSE, \(R^2\), Pearson and
+Spearman association, and the fraction of predictions within 5, 10, and 15 days.
+Absolute errors must be interpreted against the observed DIV range and the mean
+baseline. Correlation alone does not establish accurate calibration.
+
+\section{Functional Connectivity}
+
+\subsection{Spike-count correlation}
+
+Each active channel's retained event train is binned into windows of width
+\(\Delta_b=50\) ms by default. Pairwise Pearson correlation is calculated
+between the channel count vectors. A stronger absolute coefficient means more
+similar or opposing binned count variation, depending on sign. The result is
+sensitive to bin width, firing rate, shared drive, non-stationarity, and
+recording duration.
+
+\subsection{Spike-time tiling coefficient}
+
+STTC uses a coincidence half-window \(\Delta_t=20\) ms by default. For spike
+trains A and B it is computed from the proportions of spikes near the other
+train, \(P_A,P_B\), and proportions of recording time covered by the other
+train's coincidence tiles, \(T_A,T_B\):
+\[
+ \mathrm{STTC}=\frac{1}{2}\left(
+ \frac{P_A-T_B}{1-P_AT_B}+
+ \frac{P_B-T_A}{1-P_BT_A}\right).
+\]
+Positive values indicate temporal association, values near zero indicate little
+association, and negative values indicate avoidance relative to tiled time.
+STTC was designed to reduce firing-rate dependence compared with simpler
+coincidence indexes \cite{cutts2014}.
+
+\subsection{Edges, nodes, and sensor maps}
+
+By default an edge passes when \(\lvert w_{ij}\rvert\geq0.2\). The
+\code{--signed-edges} option instead thresholds signed values. The network map
+then displays the strongest 5\% of threshold-passing edges, with at most 120
+edges. Unless signed selection is active, strongest means greatest
+\(\lvert w_{ij}\rvert\). Edge colour retains sign.
+
+Global node strength is
+\[
+  s_i=\sum_{j\ne i}\lvert w_{ij}\rvert
+\]
+on the full matrix. Selected-map node strength is computed from displayed edges
+only. Thus a globally strong node can appear unconnected when none of its edges
+survives the threshold, percentile, or edge cap.
+
+\subsection{Sensitivity analysis}
+
+The correlation bin, STTC window, both thresholds, sign rule, top-edge
+percentage, and edge cap are public parameters. A defensible sensitivity study
+should define a grid before examining the final result, for example:
+
+\begin{longtable}{p{0.36\linewidth}p{0.50\linewidth}}
+\toprule
+Parameter & Example values \\
+\midrule
+Correlation bin width & 20, 50, 100, and 200 ms \\
+STTC coincidence window & 5, 10, 20, and 50 ms \\
+Absolute edge threshold & 0.1, 0.2, 0.3, and 0.4 \\
+Displayed passing edges & 1\%, 5\%, 10\%, and all \\
+\bottomrule
+\end{longtable}
+
+For each setting compare active-channel count, passing-edge density, positive
+and negative edge fractions, node-strength rank stability, overlap of strongest
+edges, and spatial concentration. Parameter exploration must be identified as
+exploratory if it influences the reported setting.
+
+\section{Public Command Reference}
+
+\begin{longtable}{>{\ttfamily\scriptsize\raggedright\arraybackslash}p{0.54\linewidth}p{0.38\linewidth}}
+\toprule
+Program & Purpose \\
+\midrule
+main\_extract\_traces\_h5.py & Export BRW recordings to chunked HDF5 traces. \\
+main\_export\_h5\_to\_channel\_npy.py & Optional one-array-per-channel trace export. \\
+main\_detect\_spikes\_from\_h5.py & Detect positive and negative events and save waveforms. \\
+main\_compute\_spike\_burst\_metrics.py & Compute channel and well spike/burst tables. \\
+main\_prepare\_labeled\_metrics.py & Join labels with one or more metric roots. \\
+main\_run\_negative\_spike\_stratification\_analysis.py & Per-recording and transversal PCA/k-means clustering. \\
+main\_run\_negative\_spike\_connectivity\_analysis.py & Correlation, STTC, edge, strength, and map analysis. \\
+main\_run\_negative\_spike\_recording\_classification.py & Grouped classification and reusable final models. \\
+main\_run\_negative\_spike\_div\_regression\_analysis.py & Grouped continuous-DIV regression. \\
+main\_apply\_saved\_negative\_spike\_classifier.py & Extract features and apply a saved classifier to new data. \\
+main\_run\_mamba\_algorithm\_comparison.py & Compare Mamba and classical classifiers on NPZ sequences. \\
+\bottomrule
+\end{longtable}
+
+Every program has an editable parameter block near its top. Configuration and
+processing-order guidance is maintained in \code{docs/public\_cli\_usage.md}.
+
+\section{Output Dictionary}
+
+\subsection{Metrics}
+
+Each recording's \code{spike\_burst/} directory includes channel and well CSV
+tables plus a complete pickle object. The metric root also contains
+\code{all\_recordings\_spike\_burst\_summary.csv}.
+
+\subsection{Stratification}
+
+Per-recording folders include \code{run\_info.csv}, spike assignments, centroid
+means and standard deviations, cluster-by-channel tables, PCA and centroid
+figures, event-count maps, and local cluster-percentage maps. The transversal
+folder adds recording-by-cluster counts and normalised profiles.
+
+\subsection{Classification and regression}
+
+Supervised analyses save recording metadata, fold metrics, held-out predictions,
+ranked summaries, diagnostic figures, and reusable artifacts. The
+\code{final\_models/} directory includes one bundle per selected algorithm,
+JSON model metadata, \code{model\_manifest.csv}, and
+\code{training\_recordings.csv}.
+
+\subsection{Connectivity}
+
+Each recording includes correlation and STTC matrices, threshold-passing edge
+lists, full node-strength tables, firing rates, filter counts, binned counts,
+parameters, and network maps. The maps folder stores selected edge lists and
+selected-map strength separately from global strength.
+
+Generated outputs are excluded from Git. A publication archive should keep
+tables, figures, model metadata, exact commands, logs, and checksums together.
+
+\section{Saved Models and New Data}
+
+After cross-validation, selected models are refitted on all eligible labelled
+recordings. Their metadata records training recordings and biological units,
+class mapping or target, feature set, preprocessing, estimator parameters,
+random seed, and train/test cross-validation metrics.
+
+Configure the saved model, spike root, and output folder, then run:
+
+\begin{lstlisting}
+python3 main/main_apply_saved_negative_spike_classifier.py
+\end{lstlisting}
+
+The application command repeats waveform filtering, activity selection, and
+feature extraction using the model bundle. A precomputed feature CSV is not
+required. New data must match training waveform length, detector labels,
+sampling assumptions, voltage scale, channel convention, and experimental
+domain. A successful prediction is not external validation.
+
+Joblib, pickle, and PyTorch files may execute code when loaded. Use trusted
+artifacts only and retain checksums after transfer.
+
+\section{Reproducibility and Publication Checklist}
+
+\subsection{Dataset and acquisition}
+
+\begin{itemize}
+  \item Record experiment, organoid/culture, chip, well, condition, DIV, date,
+  hardware, sampling rate, duration, and voltage units.
+  \item Preserve raw-recording and labels-file checksums.
+  \item State recording and biological-unit inclusion/exclusion rules.
+  \item Keep experimental campaigns separate unless pooling is pre-specified.
+\end{itemize}
+
+\subsection{Computation}
+
+\begin{itemize}
+  \item Save \code{git rev-parse HEAD}, Python version, and package environment.
+  \item Archive the exact command, standard output/error log, and random seed.
+  \item Report event counts at every filter stage and all sampling caps.
+  \item Verify expected, present, non-empty, and active channel counts.
+  \item Fit learned feature transforms only within training folds.
+  \item Compare supervised results with dummy baselines and report fold spread.
+  \item Distinguish grouped cross-validation from external validation.
+  \item Report and test connectivity windows, thresholds, and map selection.
+\end{itemize}
+
+\subsection{Figures and release}
+
+\begin{itemize}
+  \item Inspect legends, colour bars, labels, clipping, and resolution.
+  \item Keep cluster colours and IDs explicitly run-specific.
+  \item Update software version, changelog, citation metadata, and manual date.
+  \item Run tests and build Sphinx documentation with warnings as errors.
+  \item Attach this PDF and checksums to the software release.
+\end{itemize}
+
+\section{Troubleshooting}
+
+\begin{longtable}{p{0.33\linewidth}p{0.59\linewidth}}
+\toprule
+Symptom & Checks and resolution \\
+\midrule
+No spike metric files found & Run spike detection and the metrics main first; confirm the spike root and recording subdirectories. \\
+Only a few active channels & Confirm duration and sampling rate, inspect filter-stage counts, and remember that activity requires a rate strictly greater than the threshold after polarity filtering. \\
+4096-channel expectation mismatch & Channel 0 is the reference, leaving 4095 candidates; missing spike files and empty/inactive channels are reported separately. \\
+Inconsistent supervised sample counts & One feature row and one target are required per recording. Rebuild recording-level features rather than passing individual spike labels to the classifier. \\
+Poor multiclass DIV classification & Prefer continuous DIV regression when maturity is ordinal/continuous and class boundaries are artificial. \\
+Cluster separation is only polarity & Use the plausible-negative pipeline and inspect the filter summary and centroid variability. \\
+Strong node without displayed edge & Global node strength uses the complete matrix; maps show only thresholded and top-ranked edges. \\
+Existing outputs are reused & Use the relevant force option only after recording why recomputation is needed. Use map-only/reuse options when only visual outputs changed. \\
+Missing Python package & Activate the environment used for installation and run \code{python -m pip install -e .}; avoid mixing system Python and environment Python. \\
+\bottomrule
+\end{longtable}
+
+\section{Reporting Template}
+
+The following compact paragraph can be adapted for a manuscript after replacing
+bracketed values:
+
+\begin{quote}\small
+MEA recordings (\(n=[\mathrm{recordings}]\),
+\(n=[\mathrm{biological\ units}]\)) were processed with 3D-BrAIn version
+[version], commit [hash]. Signals were acquired at [sampling rate] Hz for
+[duration] s. Detected events were restricted to channel-wise plausible
+negative waveforms using detector label 0, a negative-to-positive extremum
+ratio of at least 1.10, and a trough within 10 samples of the extraction centre.
+Reference channel 0 was excluded and channels with retained firing rate no
+greater than 0.25 Hz were removed. [Analysis] used [feature/method details].
+Supervised models were evaluated by [folds]-fold grouped cross-validation with
+[repeats] repeats, keeping all recordings from one biological unit within one
+partition. Connectivity was evaluated using [bin] ms spike-count correlation
+and STTC with a [window] ms coincidence window; edges were defined at
+[threshold] and network maps displayed [percentage] of threshold-passing edges.
+\end{quote}
+
+Add dataset-specific counts, class or DIV distributions, model-selection rules,
+effect sizes, uncertainty, sensitivity analysis, and external-validation status.
+
+\section{References}
+
+\begin{thebibliography}{9}
+
+\bibitem{cutts2014}
+C. S. Cutts and S. J. Eglen.
+\newblock Detecting pairwise correlations in spike trains: an objective
+comparison of methods and application to the study of retinal waves.
+\newblock \emph{Journal of Neuroscience}, 34(43):14288--14303, 2014.
+\newblock \url{https://doi.org/10.1523/JNEUROSCI.2767-14.2014}.
+
+\bibitem{minirocket}
+A. Dempster, D. F. Schmidt, and G. I. Webb.
+\newblock MiniRocket: A very fast (almost) deterministic transform for time
+series classification.
+\newblock In \emph{Proceedings of the 27th ACM SIGKDD Conference}, 2021.
+\newblock \url{https://arxiv.org/abs/2012.08791}.
+
+\bibitem{mamba}
+A. Gu and T. Dao.
+\newblock Mamba: Linear-time sequence modeling with selective state spaces.
+\newblock 2023. \url{https://arxiv.org/abs/2312.00752}.
+
+\bibitem{sklearn}
+F. Pedregosa et al.
+\newblock Scikit-learn: Machine learning in Python.
+\newblock \emph{Journal of Machine Learning Research}, 12:2825--2830, 2011.
+
+\end{thebibliography}
+
+\section*{Software Citation}
+
+Use the citation shown by GitHub from the repository's \code{CITATION.cff} and
+cite the exact archived release used for analysis. Cite MiniRocket, STTC, Mamba,
+and other methods only when they are part of the reported analysis.
+
+\vfill
+\begin{center}
+\small\textcolor{Navy}{3D-BrAIn 1.0.0 \textbullet{} MIT License \textbullet{} Research use}
+\end{center}
+
+\end{document}
