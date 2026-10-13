@@ -174,3 +174,7 @@ tools/.env.portal-upload
 .tmp_spreadsheet/
 .venv_report/
 .Rhistory
+
+test/
+tools/
+docs/
